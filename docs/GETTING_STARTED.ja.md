@@ -73,6 +73,9 @@ toji show 日記/2026-10-22.md            # ファイルの path でも読める
 toji edit gpu-fan                       # エディタで開く(show の画面で v を押しても同じ)
 toji new 2026-10-27 --template daily    # テンプレートから作る(下の「テンプレート」を参照)
 toji list                               # 一覧
+toji index --dry-run                   # 各フォルダの index.md をどう直すか見る(書き込まない)
+toji index                             # index.md のリンク一覧を作り直す。見出しとその下の段落、
+                                       # リンク一覧でない節は手書きのまま残る(下の「index.md」を参照)
 toji backlinks gpu-fan                  # このページへリンクしているページ
 toji validate                           # OKF の規格どおりかを検査
 toji new -h                             # どのコマンドも -h / --help でヘルプ(toji help new も同じ)
