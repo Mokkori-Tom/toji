@@ -78,6 +78,8 @@ func main() {
 		runInit(rest)
 	case "new":
 		runNew(rest)
+	case "toc":
+		runToc(rest)
 	case "edit":
 		runEdit(rest)
 	case "completion":
@@ -113,6 +115,7 @@ Commands:
   new <bundle> <concept-id>   Create a page: from flags and --body (- = stdin) in one call,
                               or open it in $EDITOR on a terminal (see toji new -h)
   edit <bundle> <concept-id>  Open a page in $EDITOR (v in the show pager does the same)
+  toc [bundle] <concept-id>   Write a table of contents into a page (--depth, --remove)
   completion zsh|bash         Print a shell completion script (page IDs, tags, types)
   backlinks <bundle> <id>    List concepts that link to a given concept
   graph <bundle>             Print cross-link graph statistics
@@ -1001,6 +1004,22 @@ func allSchemaCommands() []schemaCommand {
 			Long:      "Builds the directed cross-link graph from concept markdown links and prints nodes, edges, and summary statistics. The statistics always cover the whole graph; the nodes and edges lists are each capped at 50 unless --limit is given, with truncated set when either was cut.",
 			Flags:     []schemaFlag{{Name: "limit", Type: "int", Default: "50 when JSON, none for plain text", Description: "return at most N nodes and N edges; 0 returns all. The counts and statistics are always for the whole graph"}},
 			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Stdout:    "json",
+			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
+		},
+		{
+			Name:  "toc",
+			Short: "Write a table of contents into a page",
+			Long:  "Lists the page's headings as links and writes the list between <!-- toc --> and <!-- /toc --> markers, under the title heading when the page has no markers yet; running it again rebuilds the list in place. A single level-1 heading is the title and is left out; when the page uses several level-1 headings they are listed. Headings up to --depth (default 3), outside code fences, not marked <!-- omit in toc --> and not titling the table itself (目次, Contents) are listed; links use GitHub-style fragments (lower case, punctuation dropped, spaces to hyphens, letters of any script kept). Accepts a concept ID or a path to an .md file. --remove takes the markers and the list out. --dry-run reports without writing. JSON output: id, path, status (inserted|updated|unchanged|removed), headings (level, text, slug, line).",
+			Flags: []schemaFlag{
+				{Name: "depth", Type: "int", Default: "3", Description: "deepest heading level listed (1-6)"},
+				{Name: "remove", Type: "bool", Default: "false", Description: "remove the table of contents and its markers"},
+				{Name: "dry-run", Type: "bool", Default: "false", Description: "report what would change; write nothing"},
+			},
+			Args: []schemaArg{
+				{Name: "bundle", Required: false},
+				{Name: "concept-id", Required: true},
+			},
 			Stdout:    "json",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},

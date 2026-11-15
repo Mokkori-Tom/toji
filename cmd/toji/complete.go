@@ -89,6 +89,7 @@ _okf() {
     'search:search pages by text, --tag, --type'
     'show:show a page (rendered on a terminal)'
     'edit:open a page in $EDITOR'
+    'toc:write a table of contents into a page'
     'new:create a page and open it in $EDITOR'
     'list:list pages'
     'backlinks:list pages that link to a page'
@@ -125,6 +126,7 @@ _okf() {
       search)   compadd -- --tag --type --text --meta --limit $common ;;
       list|graph) compadd -- --limit $common ;;
       new)      compadd -- --title --type --tag --description --status --body --template --no-edit $common ;;
+      toc)      compadd -- --depth --remove --dry-run $common ;;
       validate) compadd -- --format --exit-zero $common ;;
       lint)     compadd -- --format $common ;;
       *)        compadd -- $common ;;
@@ -133,7 +135,7 @@ _okf() {
   fi
 
   case $cmd in
-    show|edit|backlinks)
+    show|edit|toc|backlinks)
       local -a ids; ids=(${(f)"$(_okf_lines ids $bundle)"})
       _wanted pages expl 'page' compadd -a ids
       [[ $cmd != backlinks ]] && _files -g '*.md'
@@ -164,7 +166,7 @@ _okf() {
   local IFS=$'\n'
 
   if (( COMP_CWORD == 1 )); then
-    COMPREPLY=($(compgen -W $'search\nshow\nedit\nnew\nlist\nbacklinks\nvalidate\nlint\nindex\ngraph\ninit\nschema\ncompletion\nversion' -- "$cur"))
+    COMPREPLY=($(compgen -W $'search\nshow\nedit\ntoc\nnew\nlist\nbacklinks\nvalidate\nlint\nindex\ngraph\ninit\nschema\ncompletion\nversion' -- "$cur"))
     return
   fi
   if (( COMP_CWORD > 2 )) && [[ -d ${COMP_WORDS[2]} ]]; then
@@ -186,6 +188,7 @@ _okf() {
       search)   flags=$'--tag\n--type\n--text\n--meta\n--limit' ;;
       list|graph) flags=$'--limit' ;;
       new)      flags=$'--title\n--type\n--tag\n--description\n--status\n--body\n--template\n--no-edit' ;;
+      toc)      flags=$'--depth\n--remove\n--dry-run' ;;
       validate) flags=$'--format\n--exit-zero' ;;
       lint)     flags=$'--format' ;;
     esac
@@ -194,7 +197,7 @@ _okf() {
   fi
 
   case $cmd in
-    show|edit|backlinks)
+    show|edit|toc|backlinks)
       COMPREPLY=($(compgen -W "$(toji __complete ids $bundle 2>/dev/null)" -- "$cur"))
       [[ $cmd != backlinks ]] && COMPREPLY+=($(compgen -f -X '!*.md' -- "$cur"))
       compopt -o filenames

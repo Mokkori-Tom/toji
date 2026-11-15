@@ -71,6 +71,7 @@ toji search --tag 日記                  # タグで絞る(--type も使える)
 toji show gpu-fan                       # ID で読む
 toji show 日記/2026-10-22.md            # ファイルの path でも読める
 toji edit gpu-fan                       # エディタで開く(show の画面で v を押しても同じ)
+toji toc gpu-fan                       # ページの見出しの目次を <!-- toc --> の間に書く(2回目からは作り直し)
 toji new 2026-10-27 --template daily    # テンプレートから作る(下の「テンプレート」を参照)
 toji list                               # 一覧
 toji index --dry-run                   # 各フォルダの index.md をどう直すか見る(書き込まない)
