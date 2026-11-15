@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/concept"
-	"github.com/okfcli/okf/internal/validate"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/validate"
 )
 
 // Filters holds optional filter criteria. Empty fields match everything.
@@ -193,7 +193,7 @@ func entryText(line, target string) string {
 	if !ok {
 		return ""
 	}
-	// Table rows from okf index: "| [Title](page.md) | Type | Summary |".
+	// Table rows from toji index: "| [Title](page.md) | Type | Summary |".
 	after = strings.Trim(strings.TrimSpace(after), "| ")
 	for _, sep := range []string{"-", "–", "—", ":", "："} {
 		if rest, ok := strings.CutPrefix(after, sep); ok {

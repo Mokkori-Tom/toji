@@ -2,8 +2,8 @@
 package backlinks
 
 import (
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/validate"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/validate"
 )
 
 // Backlinks returns the IDs of all concepts that link to the given concept ID.

@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 // extractWikiLinks returns the Obsidian-style [[target]] links in body,

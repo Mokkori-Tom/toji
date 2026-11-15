@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/okfcli/okf/internal/render"
+	"github.com/Mokkori-Tom/toji/internal/render"
 )
 
 // wantsHelp reports whether args ask for help (-h or --help anywhere).
@@ -18,8 +18,8 @@ func wantsHelp(args []string) bool {
 }
 
 // printCommandHelp prints the help for one command as plain text, built from
-// the same metadata as `okf schema <command>`. Help is for reading, so it is
-// text even when piped; agents that want JSON use okf schema.
+// the same metadata as `toji schema <command>`. Help is for reading, so it is
+// text even when piped; agents that want JSON use toji schema.
 func printCommandHelp(name string) {
 	c := findSchemaCommand(name)
 	if c == nil {
@@ -27,7 +27,7 @@ func printCommandHelp(name string) {
 		return
 	}
 	o := render.Options{Width: 80}
-	usage := "okf " + c.Name
+	usage := "toji " + c.Name
 	for _, a := range c.Args {
 		if a.Required {
 			usage += " <" + a.Name + ">"
@@ -38,7 +38,7 @@ func printCommandHelp(name string) {
 	if len(c.Flags) > 0 {
 		usage += " [flags]"
 	}
-	fmt.Printf("okf %s - %s\n\nUsage: %s\n\n", c.Name, c.Short, usage)
+	fmt.Printf("toji %s - %s\n\nUsage: %s\n\n", c.Name, c.Short, usage)
 	if c.Long != "" {
 		fmt.Print(render.Text(c.Long, "", o))
 		fmt.Println()
@@ -65,7 +65,7 @@ func printCommandHelp(name string) {
 		}
 		fmt.Println()
 	}
-	fmt.Println("Global flags: --json, --human (or OKF_OUTPUT=json|human). Bundle defaults to $OKF_BUNDLE, else the current directory.")
+	fmt.Println("Global flags: --json, --human (or TOJI_OUTPUT=json|human). Bundle defaults to $TOJI_BUNDLE, else the current directory.")
 }
 
 func flagLabel(f schemaFlag) string {

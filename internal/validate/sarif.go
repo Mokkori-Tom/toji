@@ -68,7 +68,7 @@ func sarifLevel(s Severity) string {
 }
 
 // SARIF renders findings as an indented SARIF 2.1.0 document. toolVersion is
-// the okf binary version. The driver rules array lists each rule that appears
+// the toji binary version. The driver rules array lists each rule that appears
 // in the results, deduplicated, in order of first appearance; artifact URIs
 // are the concept's markdown path relative to the bundle root.
 func SARIF(findings []Finding, toolVersion string) ([]byte, error) {
@@ -101,9 +101,9 @@ func SARIF(findings []Finding, toolVersion string) ([]byte, error) {
 		Version: "2.1.0",
 		Runs: []sarifRun{{
 			Tool: sarifTool{Driver: sarifDriver{
-				Name:           "okf",
+				Name:           "toji",
 				Version:        toolVersion,
-				InformationURI: "https://github.com/okfcli/okf",
+				InformationURI: "https://github.com/Mokkori-Tom/toji",
 				Rules:          rules,
 			}},
 			Results: results,

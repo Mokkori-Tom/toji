@@ -1,9 +1,9 @@
 package main
 
-// Human-readable output. okf stays JSON-first: JSON is what agents, pipes and
-// scripts get. Only when stdout is a terminal (or --human / OKF_OUTPUT=human
+// Human-readable output. toji stays JSON-first: JSON is what agents, pipes and
+// scripts get. Only when stdout is a terminal (or --human / TOJI_OUTPUT=human
 // is given) do the everyday commands print plain text instead. --json or
-// OKF_OUTPUT=json forces JSON on a terminal too.
+// TOJI_OUTPUT=json forces JSON on a terminal too.
 
 import (
 	"errors"
@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/okfcli/okf/internal/concept"
-	"github.com/okfcli/okf/internal/render"
-	"github.com/okfcli/okf/internal/search"
-	"github.com/okfcli/okf/internal/validate"
+	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/render"
+	"github.com/Mokkori-Tom/toji/internal/search"
+	"github.com/Mokkori-Tom/toji/internal/validate"
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 func setOutputMode(args []string) []string {
 	tty := isTerminal(os.Stdout)
 	humanOut = tty
-	switch strings.ToLower(os.Getenv("OKF_OUTPUT")) {
+	switch strings.ToLower(env("OUTPUT")) {
 	case "json":
 		humanOut = false
 	case "human", "text":
@@ -282,7 +282,7 @@ func termWidth() int {
 	return min(w, 120)
 }
 
-// page writes out, through $OKF_PAGER or $PAGER (default less) when stdout
+// page writes out, through $TOJI_PAGER or $PAGER (default less) when stdout
 // is a terminal. less gets LESS=FRX unless LESS is set, so short pages print
 // directly and colors survive. Falls back to plain output when no pager runs.
 // With less and a source file, pressing v in the pager opens that file in the
@@ -293,7 +293,7 @@ func page(out string, noPager bool, source string) {
 		fmt.Print(out)
 		return
 	}
-	pager := os.Getenv("OKF_PAGER")
+	pager := env("PAGER")
 	if pager == "" {
 		pager = os.Getenv("PAGER")
 	}
@@ -320,7 +320,7 @@ func page(out string, noPager bool, source string) {
 	cmd := exec.Command("sh", "-c", pager) //nolint:gosec // the user's own pager setting
 	cmd.Stdin = strings.NewReader(out)
 	if editor := editorCommand(); isLess && source != "" && editor != "" {
-		if tmp, err := os.CreateTemp("", "okf-show-*.txt"); err == nil {
+		if tmp, err := os.CreateTemp("", "toji-show-*.txt"); err == nil {
 			defer func() { _ = os.Remove(tmp.Name()) }()
 			_, werr := tmp.WriteString(out)
 			if cerr := tmp.Close(); werr == nil && cerr == nil {

@@ -12,11 +12,11 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/okfcli/okf/internal/cerr"
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
-// newFront is the frontmatter `okf new` writes. Field order is the order a
+// newFront is the frontmatter `toji new` writes. Field order is the order a
 // person reads and fills it in; description and tags are left as empty
 // placeholders because lint recommends them.
 type newFront struct {
@@ -95,7 +95,7 @@ func runNew(args []string) {
 	case 2:
 		root, id = pos[0], pos[1]
 	default:
-		exitErr(cerr.Usage("usage: okf new [bundle] <concept-id> [--title <title>] [--type <type>] [--tag <a,b>] [--description <text>] [--status <status>] [--body <text>|-] [--no-edit]"))
+		exitErr(cerr.Usage("usage: toji new [bundle] <concept-id> [--title <title>] [--type <type>] [--tag <a,b>] [--description <text>] [--status <status>] [--body <text>|-] [--no-edit]"))
 	}
 
 	id = strings.TrimSuffix(filepath.ToSlash(id), ".md")
@@ -261,11 +261,11 @@ func mergeInto(node, extra *yaml.Node, explicit map[string]bool) {
 	}
 }
 
-// author returns the actor recorded in generated.by (OKF §7): OKF_AUTHOR as
+// author returns the actor recorded in generated.by (OKF §7): TOJI_AUTHOR (or OKF_AUTHOR) as
 // given, otherwise human:<login name>. Empty means unknown, and the
 // generated block is left out rather than invented.
 func author() string {
-	if a := os.Getenv("OKF_AUTHOR"); a != "" {
+	if a := env("AUTHOR"); a != "" {
 		return a
 	}
 	for _, k := range []string{"USER", "LOGNAME"} {

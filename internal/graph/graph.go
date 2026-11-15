@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/concept"
-	"github.com/okfcli/okf/internal/validate"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/validate"
 )
 
 // Graph is the directed cross-link graph of a bundle.

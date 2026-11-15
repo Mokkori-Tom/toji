@@ -60,7 +60,7 @@ const (
 	// reserved: index.md and log.md structure (§8, §9, §12)
 	RuleIndexFrontmatter    = "okf/reserved/index-frontmatter"
 	RuleIndexFrontmatterKey = "okf/reserved/index-frontmatter-key"
-	RuleOKFVersionUnknown   = "okf/reserved/okf-version-unknown"
+	RuleOKFVersionUnknown   = "okf/reserved/toji-version-unknown"
 	RuleLogDateHeading      = "okf/reserved/log-date-heading"
 )
 

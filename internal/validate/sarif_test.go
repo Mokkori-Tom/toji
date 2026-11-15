@@ -36,7 +36,7 @@ var allRuleIDs = []string{
 	"okf/reserved/index-frontmatter",
 	"okf/reserved/index-frontmatter-key",
 	"okf/reserved/log-date-heading",
-	"okf/reserved/okf-version-unknown",
+	"okf/reserved/toji-version-unknown",
 	"okf/sources/footnote-duplicate",
 	"okf/sources/footnote-undefined",
 	"okf/sources/footnote-unmatched",
@@ -122,10 +122,10 @@ func TestSARIF_Structure(t *testing.T) {
 	}
 	run := runs[0].(map[string]any)
 	driver := run["tool"].(map[string]any)["driver"].(map[string]any)
-	if driver["name"] != "okf" || driver["version"] != "1.2.3" {
+	if driver["name"] != "toji" || driver["version"] != "1.2.3" {
 		t.Errorf("driver = %v", driver)
 	}
-	if driver["informationUri"] != "https://github.com/okfcli/okf" {
+	if driver["informationUri"] != "https://github.com/Mokkori-Tom/toji" {
 		t.Errorf("informationUri = %v", driver["informationUri"])
 	}
 

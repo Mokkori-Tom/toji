@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okfcli/okf/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
 )
 
 func runOKFIn(t *testing.T, dir string, env []string, args ...string) (string, int) {
@@ -27,7 +27,7 @@ func runOKFIn(t *testing.T, dir string, env []string, args ...string) (string, i
 
 func TestE2E_NewCreatesValidConcept(t *testing.T) {
 	dir := t.TempDir()
-	out, code := runOKFIn(t, dir, []string{"OKF_AUTHOR=human:tester"},
+	out, code := runOKFIn(t, dir, []string{"TOJI_AUTHOR=human:tester"},
 		"new", ".", "notes/電力", "--title", "電力: 上限の記録", "--tag", "GPU, 冷却")
 	if code != 0 {
 		t.Fatalf("new: exit %d; out=%s", code, out)
@@ -105,8 +105,8 @@ func TestE2E_SearchTermsAndDefaultBundle(t *testing.T) {
 	check("explicit bundle", out, code)
 	out, code = runOKFIn(t, dir, nil, "search", "上限")
 	check("cwd bundle", out, code)
-	out, code = runOKFIn(t, other, []string{"OKF_BUNDLE=" + dir}, "search", "150w")
-	check("OKF_BUNDLE", out, code)
+	out, code = runOKFIn(t, other, []string{"TOJI_BUNDLE=" + dir}, "search", "150w")
+	check("TOJI_BUNDLE", out, code)
 
 	// A path-looking first argument that does not exist is an I/O error,
 	// not a search term.
@@ -122,7 +122,7 @@ func TestE2E_HumanOutput(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "gpu  GPUのファン\n") || !strings.Contains(out, "   6: ファンカーブを適用\n") {
 		t.Errorf("human search: exit %d; out=%q", code, out)
 	}
-	out, _ = runOKFIn(t, dir, []string{"OKF_OUTPUT=human"}, "list")
+	out, _ = runOKFIn(t, dir, []string{"TOJI_OUTPUT=human"}, "list")
 	if !strings.HasPrefix(out, "gpu  GPUのファン [Note]\n") {
 		t.Errorf("human list: %q", out)
 	}
@@ -131,8 +131,8 @@ func TestE2E_HumanOutput(t *testing.T) {
 	if code == 0 || out != "" {
 		t.Errorf("human error: exit %d; stdout=%q", code, out)
 	}
-	// --json wins over OKF_OUTPUT.
-	out, _ = runOKFIn(t, dir, []string{"OKF_OUTPUT=human"}, "list", "--json")
+	// --json wins over TOJI_OUTPUT.
+	out, _ = runOKFIn(t, dir, []string{"TOJI_OUTPUT=human"}, "list", "--json")
 	if !strings.HasPrefix(out, "{") {
 		t.Errorf("--json: %q", out)
 	}
@@ -184,7 +184,7 @@ func TestE2E_CompletionCandidates(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "Branden Robinson.md"), "# 人物\n")
 	other := t.TempDir()
 
-	out, code := runOKFIn(t, other, []string{"OKF_BUNDLE=" + dir}, "__complete", "ids")
+	out, code := runOKFIn(t, other, []string{"TOJI_BUNDLE=" + dir}, "__complete", "ids")
 	if code != 0 || out != "Branden Robinson\nnotes/電力\n" {
 		t.Errorf("ids: exit %d; out=%q", code, out)
 	}
@@ -193,13 +193,13 @@ func TestE2E_CompletionCandidates(t *testing.T) {
 		t.Errorf("tags with explicit bundle: %q", out)
 	}
 	// A missing bundle yields nothing, quietly.
-	if out, code := runOKFIn(t, other, []string{"OKF_BUNDLE=/nonexistent"}, "__complete", "ids"); code != 0 || out != "" {
+	if out, code := runOKFIn(t, other, []string{"TOJI_BUNDLE=/nonexistent"}, "__complete", "ids"); code != 0 || out != "" {
 		t.Errorf("missing bundle: exit %d; out=%q", code, out)
 	}
 
 	for _, sh := range []string{"zsh", "bash"} {
 		script, code := runOKFIn(t, other, nil, "completion", sh)
-		if code != 0 || !strings.Contains(script, "okf __complete") {
+		if code != 0 || !strings.Contains(script, "toji __complete") {
 			t.Errorf("completion %s: exit %d", sh, code)
 			continue
 		}
@@ -259,14 +259,14 @@ func TestE2E_SubcommandHelp(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"new", "-h"}, "okf new - "},
-		{[]string{"new", "x", "--help"}, "okf new - "},
-		{[]string{"search", "-h"}, "okf search - "},
-		{[]string{"help", "validate"}, "okf validate - "},
+		{[]string{"new", "-h"}, "toji new - "},
+		{[]string{"new", "x", "--help"}, "toji new - "},
+		{[]string{"search", "-h"}, "toji search - "},
+		{[]string{"help", "validate"}, "toji validate - "},
 	}
 	for _, c := range cases {
 		out, code := runOKFIn(t, dir, nil, c.args...)
-		if code != 0 || !strings.HasPrefix(out, c.want) || !strings.Contains(out, "Usage: okf ") {
+		if code != 0 || !strings.HasPrefix(out, c.want) || !strings.Contains(out, "Usage: toji ") {
 			t.Errorf("%v: exit %d; out=%q", c.args, code, out)
 		}
 	}

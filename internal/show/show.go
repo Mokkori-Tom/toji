@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // Show returns the concept with the given ID from the bundle.

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 func TestBacklinks_FindsIncomingLinks(t *testing.T) {

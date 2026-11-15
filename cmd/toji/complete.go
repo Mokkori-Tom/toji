@@ -1,7 +1,7 @@
 package main
 
-// Shell completion. `okf completion zsh|bash` prints a script; the script
-// asks the hidden `okf __complete <kind> [bundle]` for candidates, one per
+// Shell completion. `toji completion zsh|bash` prints a script; the script
+// asks the hidden `toji __complete <kind> [bundle]` for candidates, one per
 // line, so page IDs, tags and types always come from the live bundle.
 
 import (
@@ -9,13 +9,13 @@ import (
 	"os"
 	"sort"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
 )
 
 func runCompletion(args []string) {
 	if len(args) != 1 {
-		exitErr(cerr.Usage("usage: okf completion zsh|bash"))
+		exitErr(cerr.Usage("usage: toji completion zsh|bash"))
 	}
 	switch args[0] {
 	case "zsh":
@@ -73,13 +73,13 @@ func runComplete(args []string) {
 	}
 }
 
-const zshCompletion = `#compdef okf
-# okf completion for zsh. Load with:
-#   okf completion zsh >/dev/null 2>&1 && source <(okf completion zsh)
+const zshCompletion = `#compdef toji
+# toji completion for zsh. Load with:
+#   toji completion zsh >/dev/null 2>&1 && source <(toji completion zsh)
 
 _okf_lines() {
   local -a lines
-  lines=("${(@f)$(okf __complete "$@" 2>/dev/null)}")
+  lines=("${(@f)$(toji __complete "$@" 2>/dev/null)}")
   print -rl -- "${lines[@]}"
 }
 
@@ -102,7 +102,7 @@ _okf() {
     'version:print version'
   )
   if (( CURRENT == 2 )); then
-    _describe -t commands 'okf command' cmds
+    _describe -t commands 'toji command' cmds
     return
   fi
 
@@ -150,11 +150,11 @@ _okf() {
   esac
 }
 
-compdef _okf okf
+compdef _okf toji
 `
 
-const bashCompletion = `# okf completion for bash. Load with:
-#   okf completion bash >/dev/null 2>&1 && source <(okf completion bash)
+const bashCompletion = `# toji completion for bash. Load with:
+#   toji completion bash >/dev/null 2>&1 && source <(toji completion bash)
 
 _okf() {
   local cur prev cmd bundle=""
@@ -172,9 +172,9 @@ _okf() {
   fi
 
   case $prev in
-    --tag)  COMPREPLY=($(compgen -W "$(okf __complete tags $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
-    --type) COMPREPLY=($(compgen -W "$(okf __complete types $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
-    --template) COMPREPLY=($(compgen -W "$(okf __complete templates $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
+    --tag)  COMPREPLY=($(compgen -W "$(toji __complete tags $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
+    --type) COMPREPLY=($(compgen -W "$(toji __complete types $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
+    --template) COMPREPLY=($(compgen -W "$(toji __complete templates $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
     --title|--description|--text) return ;;
     --format) COMPREPLY=($(compgen -W $'json\nsarif' -- "$cur")); return ;;
   esac
@@ -195,7 +195,7 @@ _okf() {
 
   case $cmd in
     show|edit|backlinks)
-      COMPREPLY=($(compgen -W "$(okf __complete ids $bundle 2>/dev/null)" -- "$cur"))
+      COMPREPLY=($(compgen -W "$(toji __complete ids $bundle 2>/dev/null)" -- "$cur"))
       [[ $cmd != backlinks ]] && COMPREPLY+=($(compgen -f -X '!*.md' -- "$cur"))
       compopt -o filenames
       ;;
@@ -204,5 +204,5 @@ _okf() {
   esac
 }
 
-complete -F _okf okf
+complete -F _okf toji
 `

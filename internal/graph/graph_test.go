@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 func TestBuild_BodyLinks(t *testing.T) {

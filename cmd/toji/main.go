@@ -1,8 +1,8 @@
-// Command okf is a CLI toolkit for the Open Knowledge Format (OKF).
+// Command toji is a CLI toolkit for the Open Knowledge Format (OKF).
 // It validates, lints, indexes, and inspects OKF bundles.
 //
-// okf is designed agentic-first: all output is JSON on stdout by default,
-// `okf schema` emits a complete machine-readable description of every command,
+// toji is designed agentic-first: all output is JSON on stdout by default,
+// `toji schema` emits a complete machine-readable description of every command,
 // and all errors are emitted as JSON envelopes with stable exit codes.
 // An external AI agent can discover and drive the entire CLI from that one
 // command.
@@ -17,16 +17,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/okfcli/okf/internal/backlinks"
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/cerr"
-	"github.com/okfcli/okf/internal/concept"
-	"github.com/okfcli/okf/internal/graph"
-	"github.com/okfcli/okf/internal/index"
-	"github.com/okfcli/okf/internal/initbundle"
-	"github.com/okfcli/okf/internal/search"
-	"github.com/okfcli/okf/internal/show"
-	"github.com/okfcli/okf/internal/validate"
+	"github.com/Mokkori-Tom/toji/internal/backlinks"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/graph"
+	"github.com/Mokkori-Tom/toji/internal/index"
+	"github.com/Mokkori-Tom/toji/internal/initbundle"
+	"github.com/Mokkori-Tom/toji/internal/search"
+	"github.com/Mokkori-Tom/toji/internal/show"
+	"github.com/Mokkori-Tom/toji/internal/validate"
 )
 
 var (
@@ -51,7 +51,7 @@ func main() {
 
 	switch cmd {
 	case "version", "--version", "-v":
-		outputJSON(map[string]any{"name": "okf", "version": version, "commit": commit, "date": date})
+		outputJSON(map[string]any{"name": "toji", "version": version, "commit": commit, "date": date})
 	case "help", "--help", "-h":
 		if len(rest) > 0 {
 			printCommandHelp(rest[0])
@@ -91,14 +91,14 @@ func main() {
 	}
 }
 
-const usage = `okf - Open Knowledge Format toolkit (v%s)
+const usage = `toji - Open Knowledge Format toolkit (v%s)
 
 Usage:
-  okf <command> [bundle-path]
+  toji <command> [bundle-path]
 
 Output is JSON on stdout when piped (what agents and scripts get) and plain
-text on a terminal. --json / --human or OKF_OUTPUT=json|human force a mode.
-Diagnostics go to stderr. The bundle path defaults to $OKF_BUNDLE, else the
+text on a terminal. --json / --human or TOJI_OUTPUT=json|human force a mode.
+Diagnostics go to stderr. The bundle path defaults to $TOJI_BUNDLE, else the
 current directory.
 
 Commands:
@@ -111,7 +111,7 @@ Commands:
   show <bundle> <concept-id> Show a single concept's full content
   search <bundle> [terms...]  Search concepts by text terms, --tag, --type, --meta, --limit
   new <bundle> <concept-id>   Create a page: from flags and --body (- = stdin) in one call,
-                              or open it in $EDITOR on a terminal (see okf new -h)
+                              or open it in $EDITOR on a terminal (see toji new -h)
   edit <bundle> <concept-id>  Open a page in $EDITOR (v in the show pager does the same)
   completion zsh|bash         Print a shell completion script (page IDs, tags, types)
   backlinks <bundle> <id>    List concepts that link to a given concept
@@ -247,7 +247,7 @@ func capped[T any](s []T, limit int) ([]T, bool) {
 
 func runValidate(args []string, strict bool) {
 	// Flags may appear before or after the bundle path
-	// (okf validate --format sarif bundle, okf validate bundle --format sarif).
+	// (toji validate --format sarif bundle, toji validate bundle --format sarif).
 	bundlePath := ""
 	format := "json"
 	exitZero := false
@@ -476,7 +476,7 @@ func runShow(args []string) {
 		args = []string{defaultBundle(), args[0]}
 	}
 	if len(args) < 2 {
-		exitErr(cerr.Usage("usage: okf show [bundle] <concept-id | file.md>"))
+		exitErr(cerr.Usage("usage: toji show [bundle] <concept-id | file.md>"))
 	}
 	var c *concept.Concept
 	root := args[0]
@@ -685,10 +685,19 @@ const maxJSONLines = 5
 
 // defaultBundle is the bundle used when a command is given none.
 func defaultBundle() string {
-	if b := os.Getenv("OKF_BUNDLE"); b != "" {
+	if b := env("BUNDLE"); b != "" {
 		return b
 	}
 	return "."
+}
+
+// env reads the TOJI_<name> environment variable, falling back to OKF_<name>,
+// the name the tool's settings had while it was called okf.
+func env(name string) string {
+	if v := os.Getenv("TOJI_" + name); v != "" {
+		return v
+	}
+	return os.Getenv("OKF_" + name)
 }
 
 // isMarkdownFile reports whether p names an existing regular .md file.
@@ -715,7 +724,7 @@ func runInit(args []string) {
 		exitErr(err)
 	}
 	if len(args) == 0 {
-		exitErr(cerr.Usage("usage: okf init <bundle-path>"))
+		exitErr(cerr.Usage("usage: toji init <bundle-path>"))
 	}
 	dir := args[0]
 	if err := initbundle.Create(dir); err != nil {
@@ -746,7 +755,7 @@ func runBacklinks(args []string) {
 		args = []string{defaultBundle(), args[0]}
 	}
 	if len(args) < 2 {
-		exitErr(cerr.Usage("usage: okf backlinks [bundle] <concept-id>"))
+		exitErr(cerr.Usage("usage: toji backlinks [bundle] <concept-id>"))
 	}
 	b := mustBundle("backlinks", args[:1])
 	conceptID := strings.TrimSuffix(args[1], ".md")
@@ -807,7 +816,7 @@ type schemaRoot struct {
 }
 
 func runSchema(args []string) {
-	// `okf schema <command>` describes a single command.
+	// `toji schema <command>` describes a single command.
 	if len(args) > 0 {
 		cmd := findSchemaCommand(args[0])
 		if cmd == nil {
@@ -821,7 +830,7 @@ func runSchema(args []string) {
 
 func buildSchemaRoot() schemaRoot {
 	return schemaRoot{
-		Name:        "okf",
+		Name:        "toji",
 		Version:     version,
 		Description: "Go CLI toolkit for the Open Knowledge Format (OKF)",
 		Commands:    allSchemaCommands(),
@@ -883,7 +892,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:      "list",
 			Short:     "List all concepts in the bundle",
-			Long:      "Lists concept documents with their ID, type, title, lifecycle status, and trust tier (unverified, machine-confirmed, or human-reviewed). JSON output is capped at 50 concepts unless --limit is given; count is the total and truncated tells whether some were left out, so narrow with okf search instead of raising the limit.",
+			Long:      "Lists concept documents with their ID, type, title, lifecycle status, and trust tier (unverified, machine-confirmed, or human-reviewed). JSON output is capped at 50 concepts unless --limit is given; count is the total and truncated tells whether some were left out, so narrow with toji search instead of raising the limit.",
 			Flags:     []schemaFlag{{Name: "limit", Type: "int", Default: "50 when JSON, none for plain text", Description: "return at most N results; 0 returns all. count is always the full total, and truncated is true when results were left out"}},
 			Args:      []schemaArg{{Name: "bundle", Required: true}},
 			Stdout:    "json",
@@ -894,7 +903,7 @@ func allSchemaCommands() []schemaCommand {
 			Short: "Show a single concept's full content",
 			Flags: []schemaFlag{
 				{Name: "raw", Type: "bool", Default: "false", Description: "human output only: print the markdown body as written instead of rendering it"},
-				{Name: "no-pager", Type: "bool", Default: "false", Description: "human output only: do not page long output through $OKF_PAGER / $PAGER / less"},
+				{Name: "no-pager", Type: "bool", Default: "false", Description: "human output only: do not page long output through $TOJI_PAGER / $PAGER / less"},
 			},
 			Long: "On a terminal the page is rendered and long pages open in a pager; with less, press v to open the page's file in the editor. Accepts a concept ID or a path to an existing .md file; a file path is read directly without loading the rest of the bundle, and a file without frontmatter is shown with empty frontmatter. Returns the concept's ID, file path, frontmatter (type, title, description, resource, tags), trust and lifecycle state (status, trust_tier, stale, generated, verified, stale_after), provenance (sources, usage_window), the Attested Computation contract when present (runtime, parameters, computation, executor, attester), and markdown body as JSON.",
 			Args: []schemaArg{
@@ -907,7 +916,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:  "search",
 			Short: "Search concepts by tag, type, or text",
-			Long:  "Filters concepts in a bundle by tag (--tag), frontmatter type (--type), or full-text search in title, description, and body (positional terms and/or --text). Positional terms are split on whitespace (including the full-width space); --text is matched as one phrase. Text matching is substring-based, so it works for languages written without spaces such as Japanese; it ignores case, full-width/half-width ASCII, and katakana/hiragana. Multiple terms and filters are AND-combined. With text terms, results are ranked (title matches first, then by number of matching lines) and each carries up to 5 matching body lines with file line numbers (matches) and the total (match_count). The first positional argument is taken as the bundle when it is a directory or contains a slash; otherwise the bundle is $OKF_BUNDLE or the current directory. With no filters, returns all concepts. With --meta, text terms are matched only against the title, frontmatter description, tags, and the line of an index.md that links to the page; the body is not searched, and each result carries a description (the frontmatter description, else that index line) instead of matches. JSON output is capped at 50 results unless --limit is given; count is the total and truncated tells whether some were left out.",
+			Long:  "Filters concepts in a bundle by tag (--tag), frontmatter type (--type), or full-text search in title, description, and body (positional terms and/or --text). Positional terms are split on whitespace (including the full-width space); --text is matched as one phrase. Text matching is substring-based, so it works for languages written without spaces such as Japanese; it ignores case, full-width/half-width ASCII, and katakana/hiragana. Multiple terms and filters are AND-combined. With text terms, results are ranked (title matches first, then by number of matching lines) and each carries up to 5 matching body lines with file line numbers (matches) and the total (match_count). The first positional argument is taken as the bundle when it is a directory or contains a slash; otherwise the bundle is $TOJI_BUNDLE or the current directory. With no filters, returns all concepts. With --meta, text terms are matched only against the title, frontmatter description, tags, and the line of an index.md that links to the page; the body is not searched, and each result carries a description (the frontmatter description, else that index line) instead of matches. JSON output is capped at 50 results unless --limit is given; count is the total and truncated tells whether some were left out.",
 			Flags: []schemaFlag{
 				{Name: "tag", Type: "string", Default: "", Description: "filter by tag (case-insensitive)"},
 				{Name: "type", Type: "string", Default: "", Description: "filter by frontmatter type (case-insensitive)"},
@@ -925,7 +934,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:  "new",
 			Short: "Create a new concept page",
-			Long:  "Writes <bundle>/<concept-id>.md with OKF frontmatter (type, title, description and tags, empty unless given, optional status, generated.by/at from $OKF_AUTHOR or human:$USER) and either a title heading or, with --body, the given markdown. One call creates a finished page: okf new notes/x --type Note --title X --description ... --tag a,b --body - < body.md. Never overwrites: an existing file is a validation error. On a terminal the page is then opened in $VISUAL/$EDITOR unless --no-edit is given; otherwise it prints JSON with the new path. With one positional argument the bundle is $OKF_BUNDLE or the current directory.",
+			Long:  "Writes <bundle>/<concept-id>.md with OKF frontmatter (type, title, description and tags, empty unless given, optional status, generated.by/at from $TOJI_AUTHOR or human:$USER) and either a title heading or, with --body, the given markdown. One call creates a finished page: toji new notes/x --type Note --title X --description ... --tag a,b --body - < body.md. Never overwrites: an existing file is a validation error. On a terminal the page is then opened in $VISUAL/$EDITOR unless --no-edit is given; otherwise it prints JSON with the new path. With one positional argument the bundle is $TOJI_BUNDLE or the current directory.",
 			Flags: []schemaFlag{
 				{Name: "title", Type: "string", Default: "<last segment of concept-id>", Description: "concept title"},
 				{Name: "type", Type: "string", Default: defaultNewType, Description: "frontmatter type"},
@@ -933,7 +942,7 @@ func allSchemaCommands() []schemaCommand {
 				{Name: "description", Type: "string", Default: "", Description: "one-line description"},
 				{Name: "status", Type: "string", Default: "", Description: "lifecycle status: draft, stable, or deprecated"},
 				{Name: "body", Type: "string", Default: "", Description: "page body as markdown, written as given (no title heading is added); - reads it from stdin. A frontmatter block at its top is merged into the page's frontmatter (flags win over it), so any extra keys can be set. Implies --no-edit"},
-				{Name: "template", Type: "string", Default: "", Description: "start from a template: a name looked up in $OKF_TEMPLATES, <bundle>/Templates or <bundle>/templates, or a path. Placeholders {{title}}, {{date}}, {{time}}, {{date:YYYY-MM-DD}}, {{date+1d:...}} (d, w, M, y) are filled in; dates are relative to the page's date when its title is YYYY-MM-DD, else to now. Its frontmatter is merged like --body's (template < --body < flags), and --body is appended after it"},
+				{Name: "template", Type: "string", Default: "", Description: "start from a template: a name looked up in $TOJI_TEMPLATES, <bundle>/Templates or <bundle>/templates, or a path. Placeholders {{title}}, {{date}}, {{time}}, {{date:YYYY-MM-DD}}, {{date+1d:...}} (d, w, M, y) are filled in; dates are relative to the page's date when its title is YYYY-MM-DD, else to now. Its frontmatter is merged like --body's (template < --body < flags), and --body is appended after it"},
 				{Name: "no-edit", Type: "bool", Default: "false", Description: "do not open an editor"},
 			},
 			Args: []schemaArg{
@@ -966,7 +975,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:  "edit",
 			Short: "Open a page in $EDITOR",
-			Long:  "Opens the page's file in $VISUAL, $EDITOR, or the first of nvim, vim, vi, nano. Accepts a concept ID or a path to an .md file. Without a terminal (agents, pipes) nothing is opened and the page's path is printed as JSON (opened: false). Inside okf show's pager (less), pressing v opens the shown page the same way.",
+			Long:  "Opens the page's file in $VISUAL, $EDITOR, or the first of nvim, vim, vi, nano. Accepts a concept ID or a path to an .md file. Without a terminal (agents, pipes) nothing is opened and the page's path is printed as JSON (opened: false). Inside toji show's pager (less), pressing v opens the shown page the same way.",
 			Args: []schemaArg{
 				{Name: "bundle", Required: false},
 				{Name: "concept-id", Required: true},
@@ -977,7 +986,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:      "completion",
 			Short:     "Print a shell completion script",
-			Long:      "Prints a zsh or bash completion script that completes commands, flags, page IDs (show, backlinks), folders (new), tags (--tag) and types (--type) from the bundle in $OKF_BUNDLE or the current directory. Load it with: source <(okf completion zsh).",
+			Long:      "Prints a zsh or bash completion script that completes commands, flags, page IDs (show, backlinks), folders (new), tags (--tag) and types (--type) from the bundle in $TOJI_BUNDLE or the current directory. Load it with: source <(toji completion zsh).",
 			Args:      []schemaArg{{Name: "shell", Required: true}},
 			Stdout:    "text",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeUsage},

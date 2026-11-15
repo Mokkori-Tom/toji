@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // Generate writes index.md files into every subdirectory of the bundle root

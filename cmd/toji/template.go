@@ -1,7 +1,7 @@
 package main
 
-// Page templates for `okf new --template`. Templates are markdown files in
-// $OKF_TEMPLATES or the bundle's Templates/ (or templates/) folder, written
+// Page templates for `toji new --template`. Templates are markdown files in
+// $TOJI_TEMPLATES or the bundle's Templates/ (or templates/) folder, written
 // with the placeholders of Obsidian's Templates plugin plus date offsets:
 //
 //	{{title}}  {{date}}  {{time}}  {{date:YYYY-MM-DD}}  {{time:HH:mm}}
@@ -23,7 +23,7 @@ import (
 // templateDirs lists where templates are looked up, in order.
 func templateDirs(root string) []string {
 	var dirs []string
-	if d := os.Getenv("OKF_TEMPLATES"); d != "" {
+	if d := env("TEMPLATES"); d != "" {
 		dirs = append(dirs, d)
 	}
 	return append(dirs, filepath.Join(root, "Templates"), filepath.Join(root, "templates"))

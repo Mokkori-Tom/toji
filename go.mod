@@ -1,4 +1,4 @@
-module github.com/okfcli/okf
+module github.com/Mokkori-Tom/toji
 
 go 1.27.0
 

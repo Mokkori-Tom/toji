@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // now is injectable for deterministic staleness tests.

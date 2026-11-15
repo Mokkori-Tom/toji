@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okfcli/okf/internal/cerr"
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // --- issue #31: commands without flags must still reject flags as usage ---
@@ -129,23 +129,23 @@ func TestLoadBundle_MissingDirIsIOError(t *testing.T) {
 var okfBin string
 
 func TestMain(m *testing.M) {
-	// The developer's okf settings must never reach the tests: with
-	// OKF_BUNDLE set, a test that leaves the bundle out would write into
+	// The developer's toji settings must never reach the tests: with
+	// TOJI_BUNDLE set, a test that leaves the bundle out would write into
 	// the real bundle. Tests that need one set it explicitly.
-	for _, k := range []string{"OKF_BUNDLE", "OKF_OUTPUT", "OKF_AUTHOR", "OKF_PAGER", "VISUAL", "EDITOR", "PAGER", "COLUMNS", "NO_COLOR"} {
+	for _, k := range []string{"TOJI_BUNDLE", "TOJI_OUTPUT", "TOJI_AUTHOR", "TOJI_PAGER", "OKF_BUNDLE", "OKF_OUTPUT", "OKF_AUTHOR", "OKF_PAGER", "VISUAL", "EDITOR", "PAGER", "COLUMNS", "NO_COLOR"} {
 		_ = os.Unsetenv(k)
 	}
-	dir, err := os.MkdirTemp("", "okf-test-bin")
+	dir, err := os.MkdirTemp("", "toji-test-bin")
 	if err != nil {
 		panic(err)
 	}
-	okfBin = filepath.Join(dir, "okf")
+	okfBin = filepath.Join(dir, "toji")
 	if runtime.GOOS == "windows" {
 		okfBin += ".exe"
 	}
 	build := exec.Command("go", "build", "-o", okfBin, ".")
 	if out, err := build.CombinedOutput(); err != nil {
-		panic("build okf: " + err.Error() + "\n" + string(out))
+		panic("build toji: " + err.Error() + "\n" + string(out))
 	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)

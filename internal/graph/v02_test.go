@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 func loadBundle(t *testing.T, files map[string]string) *bundle.Bundle {

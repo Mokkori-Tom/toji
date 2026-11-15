@@ -1,7 +1,7 @@
 // Package render draws markdown for a terminal: headings, lists, quotes and
 // Obsidian callouts, code blocks, tables, and inline styles, with wrapping
 // that understands Japanese (wide runes, line-breaking rules). It has no
-// dependencies so the okf binary stays small and builds anywhere.
+// dependencies so the toji binary stays small and builds anywhere.
 package render
 
 // Width approximates the terminal width of s: East Asian wide and full-width

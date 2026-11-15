@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/okfcli/okf/internal/bundle"
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // Severity is the severity of a validation finding.

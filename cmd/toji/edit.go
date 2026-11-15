@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/okfcli/okf/internal/cerr"
-	"github.com/okfcli/okf/internal/show"
+	"github.com/Mokkori-Tom/toji/internal/cerr"
+	"github.com/Mokkori-Tom/toji/internal/show"
 )
 
-// runEdit opens a page in the editor: `okf edit [bundle] <concept-id | file.md>`.
+// runEdit opens a page in the editor: `toji edit [bundle] <concept-id | file.md>`.
 // Without a terminal (an agent, a pipe) it opens nothing and prints the
 // page's path as JSON, so callers can edit the file themselves.
 func runEdit(args []string) {
@@ -20,7 +20,7 @@ func runEdit(args []string) {
 		args = []string{defaultBundle(), args[0]}
 	}
 	if len(args) != 2 {
-		exitErr(cerr.Usage("usage: okf edit [bundle] <concept-id | file.md>"))
+		exitErr(cerr.Usage("usage: toji edit [bundle] <concept-id | file.md>"))
 	}
 	var file, id string
 	if isMarkdownFile(args[1]) {

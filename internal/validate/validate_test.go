@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 func TestExtractLinks(t *testing.T) {

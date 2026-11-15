@@ -1,23 +1,23 @@
-# Contributing to okf
+# Contributing to toji
 
 Thank you for your interest in contributing. Contributions are very welcome,
 whether you are fixing a typo, filing a bug, adding a command, or reshaping a
 subsystem. This guide explains how to get set up, what we expect in a change,
 and how to get it merged.
 
-`okf` is a Go CLI toolkit for the [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
-It is designed to be one static binary, fast, and driven by both humans and AI
-agents. Keep that spirit in mind as you contribute.
+`toji` is a Go CLI for Markdown notes kept as an [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+bundle. It is designed to be one static binary, fast, and driven by both humans
+and AI agents. Keep that spirit in mind as you contribute.
 
 ## Code of conduct
 
 This project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By
-participating, you are expected to uphold it. Report unacceptable behavior to
-accounts+conduct@akeemjenkins.com.
+participating, you are expected to uphold it. Report unacceptable behavior
+through [GitHub](https://github.com/Mokkori-Tom/toji/issues).
 
 ## AI-assisted contributions are welcome
 
-We build `okf` to be agentic-first, so it is only fitting that we welcome
+We build `toji` to be agentic-first, so it is only fitting that we welcome
 contributions written with the help of AI tools (Claude Code, Copilot, Cursor,
 and others). There is no stigma here. A good pull request is a good pull request
 regardless of how it was produced.
@@ -58,19 +58,19 @@ it and does not raise it.
 ### Set up the repo
 
 ```bash
-git clone https://github.com/okfcli/okf.git
-cd okf
+git clone https://github.com/Mokkori-Tom/toji.git
+cd toji
 go mod download
-make build     # produces ./bin/okf
+make build     # produces ./bin/toji
 make test      # runs the suite
 ```
 
 Run the binary you just built:
 
 ```bash
-./bin/okf schema
-./bin/okf init /tmp/demo-bundle
-./bin/okf validate /tmp/demo-bundle
+./bin/toji schema
+./bin/toji init /tmp/demo-bundle
+./bin/toji validate /tmp/demo-bundle
 ```
 
 ## Development workflow
@@ -90,7 +90,7 @@ Run the binary you just built:
 
 | Target | What it does |
 |--------|--------------|
-| `make build` | Build the `okf` binary into `./bin` |
+| `make build` | Build the `toji` binary into `./bin` |
 | `make test` | Run the test suite |
 | `make test-race` | Run tests with the race detector |
 | `make vet` | Run `go vet` |
@@ -116,8 +116,8 @@ Run the binary you just built:
     on stdout with a stable exit code.
   - Exit codes are stable and documented in the README. Do not change their
     meaning without discussion.
-  - New commands must be discoverable through `okf schema`.
-- **No new runtime dependencies without discussion.** A core value of `okf` is
+  - New commands must be discoverable through `toji schema`.
+- **No new runtime dependencies without discussion.** A core value of `toji` is
   the single static binary with a tiny dependency tree. If your change needs a
   new module, explain why in the issue or PR first.
 - **Match the surrounding code.** Follow the naming, structure, and idioms
@@ -156,7 +156,7 @@ artifact. Matching it locally is the fastest path to a green PR.
   `Closes #123` where applicable.
 - **Scope:** keep each PR to one coherent change. Split unrelated changes into
   separate PRs.
-- **Docs:** update the README, `okf schema` output, and any relevant docs when
+- **Docs:** update the README, `toji schema` output, and any relevant docs when
   you change user-facing behavior.
 - **Green CI:** all checks must pass before review. A maintainer will review,
   possibly request changes, and merge once it is ready.
@@ -170,7 +170,7 @@ Open an issue with:
 - What you ran (the exact command and, if relevant, a minimal bundle).
 - What you expected to happen.
 - What actually happened, including the full JSON error envelope or output.
-- Your `okf version`, OS, and Go version.
+- Your `toji version`, OS, and Go version.
 
 A minimal reproducible example is the single most helpful thing you can provide.
 
@@ -183,13 +183,14 @@ code.
 
 ## Security issues
 
-Please do not open a public issue for security vulnerabilities. Instead, email
-accounts+conduct@akeemjenkins.com with details and we will coordinate a fix and
+Please do not open a public issue for security vulnerabilities. Instead, use
+[private vulnerability reporting](https://github.com/Mokkori-Tom/toji/security/advisories/new)
+with details and we will coordinate a fix and
 disclosure privately.
 
 ## Licensing and sign-off
 
-`okf` is licensed under [Apache 2.0](LICENSE). By submitting a contribution, you
+`toji` is licensed under [Apache 2.0](LICENSE). By submitting a contribution, you
 agree that your contribution is licensed under the same terms, and you certify
 that you have the right to submit it (in the spirit of the
 [Developer Certificate of Origin](https://developercertificate.org/)). Only
@@ -199,4 +200,4 @@ submit code you wrote or are otherwise licensed to contribute.
 
 If anything here is unclear, open an issue with the `question` label or start a
 discussion. We would rather answer a question early than review a PR that went
-the wrong direction. Thank you for helping make `okf` better.
+the wrong direction. Thank you for helping make `toji` better.

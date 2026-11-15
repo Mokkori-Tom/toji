@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/okfcli/okf/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/concept"
 )
 
 // Bundle is a loaded OKF knowledge bundle.

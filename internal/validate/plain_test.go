@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okfcli/okf/internal/bundle"
+	"github.com/Mokkori-Tom/toji/internal/bundle"
 )
 
 func TestValidate_PlainNotesAreWarningsTypedConceptsAreStrict(t *testing.T) {
@@ -16,7 +16,7 @@ func TestValidate_PlainNotesAreWarningsTypedConceptsAreStrict(t *testing.T) {
 		"obsidian.md": "---\ntitle: 作業メモ\ntags: [gpu]\nstatus: 進行中\n---\n\n本文\n",
 		"plain.md":    "# ただのメモ\n",
 		// Has a type, so it is an OKF concept and gets the full checks.
-		"okf.md": "---\ntype: Note\ntitle: OKF\nstatus: 進行中\n---\n\n本文\n",
+		"toji.md": "---\ntype: Note\ntitle: OKF\nstatus: 進行中\n---\n\n本文\n",
 	}
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
@@ -40,13 +40,13 @@ func TestValidate_PlainNotesAreWarningsTypedConceptsAreStrict(t *testing.T) {
 		t.Errorf("plain: %+v, want one frontmatter-missing warning", fs)
 	}
 	strictStatus := false
-	for _, f := range got["okf"] {
+	for _, f := range got["toji"] {
 		if f.RuleID == RuleStatusInvalid && f.Severity == SeverityError {
 			strictStatus = true
 		}
 	}
 	if !strictStatus {
-		t.Errorf("okf: %+v, want a status-invalid error", got["okf"])
+		t.Errorf("toji: %+v, want a status-invalid error", got["toji"])
 	}
 	if r.Errors != 1 {
 		t.Errorf("errors = %d, want 1 (only the typed concept)", r.Errors)
@@ -77,9 +77,9 @@ func TestValidate_WikilinksAreNotChecked(t *testing.T) {
 func TestValidate_StrictChecksAsOKF(t *testing.T) {
 	dir := t.TempDir()
 	for name, content := range map[string]string{
-		"plain.md":    "# ただのメモ\n\n[[okf]]\n",
+		"plain.md":    "# ただのメモ\n\n[[toji]]\n",
 		"obsidian.md": "---\ntitle: 作業メモ\nstatus: 進行中\n---\n\n本文\n",
-		"okf.md":      "---\ntype: Note\ntitle: OKF\ndescription: d\ntags: [x]\n---\n\n[[plain]] [[obsidian|別名]]\n",
+		"toji.md":     "---\ntype: Note\ntitle: OKF\ndescription: d\ntags: [x]\n---\n\n[[plain]] [[obsidian|別名]]\n",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
@@ -112,7 +112,7 @@ func TestValidate_StrictChecksAsOKF(t *testing.T) {
 		{"obsidian", RuleTypeRequired, SeverityError},
 		{"obsidian", RuleStatusInvalid, SeverityError}, // full checks run
 		{"obsidian", RuleDescriptionRecommended, SeverityWarning},
-		{"okf", RuleWikilink, SeverityWarning},
+		{"toji", RuleWikilink, SeverityWarning},
 		{"plain", RuleWikilink, SeverityWarning},
 	} {
 		if !has(w.id, w.rule, w.sev) {
@@ -120,7 +120,7 @@ func TestValidate_StrictChecksAsOKF(t *testing.T) {
 		}
 	}
 	for _, f := range strict.Findings {
-		if f.RuleID == RuleWikilink && f.ConceptID == "okf" && !strings.HasPrefix(f.Message, "2 [[wikilinks]]") {
+		if f.RuleID == RuleWikilink && f.ConceptID == "toji" && !strings.HasPrefix(f.Message, "2 [[wikilinks]]") {
 			t.Errorf("wikilink message: %q", f.Message)
 		}
 	}
