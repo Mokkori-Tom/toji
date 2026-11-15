@@ -106,7 +106,7 @@ Commands:
   init <bundle>               Create a new empty OKF bundle
   validate <bundle>           Validate a bundle against the OKF spec
   lint <bundle>               Check recommended fields and style (warnings only)
-  index <bundle>              Generate index.md files (progressive disclosure)
+  index [bundle]              Update index.md files (--dry-run, --fill-descriptions)
   list <bundle>               List concepts in the bundle (JSON: first 50, --limit N)
   show <bundle> <concept-id> Show a single concept's full content
   search <bundle> [terms...]  Search concepts by text terms, --tag, --type, --meta, --limit
@@ -345,40 +345,68 @@ func commandName(strict bool) string {
 // --- index ---
 
 func runIndex(args []string) {
-	if err := rejectFlags("index", args); err != nil {
-		exitErr(err)
+	var opt index.Options
+	var pos []string
+	for _, a := range args {
+		switch a {
+		case "--dry-run":
+			opt.DryRun = true
+		case "--fill-descriptions":
+			opt.FillDescriptions = true
+		default:
+			if strings.HasPrefix(a, "-") {
+				exitErr(cerr.Usage("unknown index flag: %s", a))
+			}
+			pos = append(pos, a)
+		}
 	}
-	if len(args) == 0 {
-		args = []string{defaultBundle()}
+	if len(pos) == 0 {
+		pos = []string{defaultBundle()}
 	}
-	root := args[0]
+	root := pos[0]
 	// Load before writing anything so a bundle that does not parse (issue
-	// #27) is reported by name instead of being half-indexed and then
-	// silently miscounted below.
-	if _, lerr := loadBundle(root); lerr != nil {
+	// #27) is reported by name instead of being half-indexed.
+	b, lerr := loadBundle(root)
+	if lerr != nil {
 		exitErr(lerr)
 	}
-	if err := index.Generate(root); err != nil {
+	res, err := index.Generate(root, opt)
+	if err != nil {
 		exitErr(cerr.IO(err, "generate index in %s", root))
 	}
 
-	// Collect generated index file paths.
-	var indexFiles []string
-	b, err := bundle.Load(root)
-	if err != nil {
-		exitErr(cerr.IO(err, "reload bundle %s after indexing", root))
-	}
-	for _, r := range b.Reserved {
-		if r.ID == "index" || strings.HasSuffix(r.ID, "/index") {
-			indexFiles = append(indexFiles, r.Path)
+	indexes := make([]map[string]any, 0, len(res.Indexes))
+	counts := map[string]int{"created": 0, "updated": 0, "unchanged": 0}
+	var noDesc []string
+	for _, ir := range res.Indexes {
+		counts[ir.Status]++
+		if !ir.HasDescription {
+			noDesc = append(noDesc, ir.Dir)
 		}
+		indexes = append(indexes, map[string]any{
+			"path":            ir.Path,
+			"dir":             ir.Dir,
+			"status":          ir.Status,
+			"entries":         ir.Entries,
+			"has_description": ir.HasDescription,
+		})
 	}
-
+	if noDesc == nil {
+		noDesc = []string{}
+	}
+	if res.Filled == nil {
+		res.Filled = []string{}
+	}
 	outputJSON(map[string]any{
-		"command":         "index",
-		"bundle":          root,
-		"indexes_written": indexFiles,
-		"count":           len(indexFiles),
+		"command":             "index",
+		"bundle":              b.Root,
+		"dry_run":             opt.DryRun,
+		"indexes":             indexes,
+		"created":             counts["created"],
+		"updated":             counts["updated"],
+		"unchanged":           counts["unchanged"],
+		"missing_description": noDesc,
+		"filled_descriptions": res.Filled,
 	})
 }
 
@@ -882,10 +910,14 @@ func allSchemaCommands() []schemaCommand {
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},
 		{
-			Name:      "index",
-			Short:     "Generate index.md files (progressive disclosure)",
-			Long:      "Writes index.md into every directory containing concept documents, providing progressive disclosure per OKF spec §6.",
-			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Name:  "index",
+			Short: "Update index.md files (progressive disclosure)",
+			Long:  "Writes or updates index.md in every directory that has pages, folders of pages, or an index.md already (OKF §6). Hand-written parts are kept: the heading and the paragraph under it, which describes the folder, and any section that is not a plain list of links. The link lists are rebuilt: folders (summary: the paragraph at the top of the folder's own index.md), pages (summary: the frontmatter description) and other files, as '- [name](./target) - summary'; a summary already in the index is kept where the page or folder gives none. Section headings follow the ones the bundle already uses. JSON output: indexes (path, dir, status created|updated|unchanged, entries, has_description), counts, missing_description (folders whose index has no paragraph to write by hand), filled_descriptions. --dry-run reports without writing. --fill-descriptions copies the index summary into the frontmatter description of pages that have none (summaries ending in … are skipped as truncated).",
+			Flags: []schemaFlag{
+				{Name: "dry-run", Type: "bool", Default: "false", Description: "report what would change; write nothing"},
+				{Name: "fill-descriptions", Type: "bool", Default: "false", Description: "add description to pages that lack one, from their index entry"},
+			},
+			Args:      []schemaArg{{Name: "bundle", Required: false}},
 			Stdout:    "json",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},

@@ -167,7 +167,7 @@ func TestLoad_GeneratedIndexIsDiscoverable(t *testing.T) {
 	}
 
 	// Generate index.md files the same way `toji index` does.
-	if err := index.Generate(tmp); err != nil {
+	if _, err := index.Generate(tmp, index.Options{}); err != nil {
 		t.Fatalf("index.Generate: %v", err)
 	}
 

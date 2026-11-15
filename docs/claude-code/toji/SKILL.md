@@ -49,4 +49,11 @@ MD
 toji validate        # errors > 0 なら findings の rule と message を見て直す
 toji lint            # 推奨フィールドの不足（警告のみ）
 toji graph           # node_count, isolated（孤立ページ）など
+toji index --dry-run # index.md の更新内容を確かめる（書き込まない）
+toji index           # 各フォルダの index.md のリンク一覧を書き直す
 ```
+
+- `index` は手書きの部分（見出し、その下のフォルダ説明の段落、リンク一覧でない節）を残し、フォルダ・ページ・ファイルのリンク一覧だけを作り直す。
+  ページの要約は frontmatter の description、フォルダの要約はそのフォルダの index.md 冒頭の段落。どちらも無ければ index に書いてある要約を残す。
+- 結果の `missing_description` は、冒頭の段落が無いフォルダ。段落はユーザーが書くもので、勝手に埋めない。
+- `--fill-descriptions` は index の要約を description の無いページの frontmatter に写す。ページを書き換えるので、ユーザーに言われたときだけ使う。

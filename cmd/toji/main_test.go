@@ -104,7 +104,7 @@ func TestE2E_SymlinkedRoot(t *testing.T) {
 	if _, code := runOKF(t, "validate", link); code != 0 {
 		t.Errorf("validate via symlink: exit %d", code)
 	}
-	if out, code := runOKF(t, "index", link); code != 0 || !strings.Contains(out, `"count": 2`) {
+	if out, code := runOKF(t, "index", link); code != 0 || !strings.Contains(out, `"created": 2`) {
 		t.Errorf("index via symlink: exit %d; out=%s", code, out)
 	}
 }
@@ -284,8 +284,8 @@ func TestE2E_IndexListsPlainMarkdown(t *testing.T) {
 		t.Fatalf("index: exit %d; out=%s", code, out)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "index.md"))
-	if err != nil || !strings.Contains(string(raw), "Demo project") {
-		t.Errorf("index.md does not list README by its heading: %q %v", raw, err)
+	if err != nil || !strings.Contains(string(raw), "[README](./README.md)") {
+		t.Errorf("index.md does not list README: %q %v", raw, err)
 	}
 }
 
