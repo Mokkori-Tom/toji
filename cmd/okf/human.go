@@ -201,6 +201,9 @@ func printHits(hits []search.Hit, terms []string, total int) {
 		}
 		c := h.Concept
 		fmt.Printf("%s  %s\n", bold(c.ID), highlight(c.DisplayTitle(), terms, 0))
+		if h.Summary != "" {
+			fmt.Printf("  %s\n", highlight(h.Summary, terms, 100))
+		}
 		for k, l := range h.Lines {
 			if k == maxHumanLines {
 				fmt.Println(dim(fmt.Sprintf("  … +%d lines", len(h.Lines)-k)))

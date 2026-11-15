@@ -62,6 +62,8 @@ okf new 物理/Kapitsa --type Person --title カピッツァ --tag 物理 --body
 okf search 電力 上限                   # 部分一致・AND(語を足すほど絞られる)。全角スペース区切りも可。
                                        # ひらがな/カタカナ、全角/半角の英数字の違いを吸収。
                                        # 空白を含む語句そのものを探すときは --text "語 句"
+okf search --meta 電力                 # タイトル・description・タグ・index.md の一覧行だけを探す。
+                                       # 本文で触れているだけのページは出ず、結果に一行要約が付く
 okf search --tag 日記                  # タグで絞る(--type も使える)
 okf show gpu-fan                       # ID で読む
 okf show 日記/2026-10-22.md            # ファイルの path でも読める

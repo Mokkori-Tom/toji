@@ -18,13 +18,16 @@ description: >
 ## 調べる
 
 ```sh
-okf search 電力 上限            # 語は AND。日本語・かな/カナ・全角半角の揺れを吸収
+okf search --meta 電力 上限     # まずこれ。タイトル・description・タグ・index.md の一覧行だけを見る
+okf search 電力 上限            # 本文まで全文検索。--meta で見つからないとき。語は AND。かな/カナ・全角半角の揺れを吸収
 okf search --tag gpu --type Note
 okf show notes/gpu              # 本文と frontmatter
 okf backlinks notes/gpu         # このページを参照しているページ
 ```
 
-- 検索結果の `matches` は該当行の抜粋だけ。答える前に必ず `okf show <id>` で本文を読む。一覧だけで「ノートに無い」と判断しない。
+- 最初は `--meta` で探す。結果は 1 件ずつ `description`（一行要約）付きで短く、本文の言及だけの的外れなページが混ざらない。
+  0 件や足りないときは `--meta` を外して本文も検索する。
+- 検索結果の `description` / `matches` は抜粋だけ。答える前に必ず `okf show <id>` で本文を読む。一覧だけで「ノートに無い」と判断しない。
 - `list` / `search` / `graph` は JSON で最初の 50 件まで返す。`count` が総数、`truncated: true` なら残りがある。
   `--limit 0` で全件取るより、語・`--tag`・`--type` で絞り込む。
 

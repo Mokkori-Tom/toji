@@ -3,6 +3,7 @@ package search
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/okfcli/okf/internal/bundle"
@@ -147,4 +148,61 @@ func testBundle(t *testing.T, files map[string]string) *bundle.Bundle {
 		t.Fatalf("Load: %v", err)
 	}
 	return b
+}
+
+func TestFind_Meta(t *testing.T) {
+	b := testBundle(t, map[string]string{
+		"index.md":     "---\nokf_version: \"0.2\"\n---\n\n- [hw/](./hw/) - fan and gpu notes\n",
+		"hw/index.md":  "# hw\n\n- [fan](./fan.md) - quiet fan setup\n- [gpu](./gpu.md) - gpu notes\n",
+		"hw/fan.md":    "---\ntype: Note\ntitle: Fan\n---\n\nThe gpu runs hot.",
+		"hw/gpu.md":    "---\ntype: Note\ntitle: GPU\ndescription: card choice\ntags: [hardware]\n---\n\nbody",
+		"hw/orphan.md": "---\ntype: Note\ntitle: Orphan\n---\n\nquiet body",
+	})
+
+	// "gpu" is in fan's body only, so Meta skips it; the folder entry in the
+	// root index names no page.
+	hits := Find(b, Filters{Terms: []string{"gpu"}, Meta: true})
+	if len(hits) != 1 || hits[0].Concept.ID != "hw/gpu" {
+		t.Fatalf("got %v, want [hw/gpu]", hitIDs(hits))
+	}
+	if hits[0].Summary != "card choice" || hits[0].Lines != nil {
+		t.Errorf("Summary %q, Lines %v; want the description and no lines", hits[0].Summary, hits[0].Lines)
+	}
+
+	// The index entry is searched and becomes the summary when there is no
+	// description; orphan's body is not searched.
+	hits = Find(b, Filters{Terms: []string{"quiet"}, Meta: true})
+	if len(hits) != 1 || hits[0].Concept.ID != "hw/fan" || hits[0].Summary != "quiet fan setup" {
+		t.Fatalf("got %v, want hw/fan with the index summary", hits)
+	}
+
+	if hits := Find(b, Filters{Terms: []string{"hardware"}, Meta: true}); len(hitIDs(hits)) != 1 {
+		t.Errorf("tags: got %v, want [hw/gpu]", hitIDs(hits))
+	}
+}
+
+func TestEntryText(t *testing.T) {
+	cases := map[string]string{
+		"- [A](./a.md) - one line":        "one line",
+		"- [A](./a.md): one line":         "one line",
+		"- [A](./a.md)":                   "",
+		"| [A](a.md) | Note | one line |": "Note | one line",
+	}
+	for line, want := range cases {
+		target := "./a.md"
+		if strings.HasPrefix(line, "|") {
+			target = "a.md"
+		}
+		if got := entryText(line, target); got != want {
+			t.Errorf("entryText(%q) = %q, want %q", line, got, want)
+		}
+	}
+}
+
+func hitIDs(hits []Hit) []string {
+	var ids []string
+	for _, h := range hits {
+		ids = append(ids, h.Concept.ID)
+	}
+	return ids
 }

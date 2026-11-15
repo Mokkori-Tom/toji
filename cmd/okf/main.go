@@ -109,7 +109,7 @@ Commands:
   index <bundle>              Generate index.md files (progressive disclosure)
   list <bundle>               List concepts in the bundle (JSON: first 50, --limit N)
   show <bundle> <concept-id> Show a single concept's full content
-  search <bundle> [terms...]  Search concepts by text terms, --tag, --type, --limit
+  search <bundle> [terms...]  Search concepts by text terms, --tag, --type, --meta, --limit
   new <bundle> <concept-id>   Create a page: from flags and --body (- = stdin) in one call,
                               or open it in $EDITOR on a terminal (see okf new -h)
   edit <bundle> <concept-id>  Open a page in $EDITOR (v in the show pager does the same)
@@ -618,6 +618,8 @@ func runSearch(args []string) {
 			}
 			f.Text = args[i+1]
 			i++
+		case "--meta":
+			f.Meta = true
 		default:
 			if strings.HasPrefix(args[i], "-") {
 				exitErr(cerr.Usage("unknown search flag: %s", args[i]))
@@ -652,6 +654,9 @@ func runSearch(args []string) {
 			"id":    h.Concept.ID,
 			"type":  h.Concept.Frontmatter.Type,
 			"title": h.Concept.DisplayTitle(),
+		}
+		if f.Meta {
+			r["description"] = h.Summary
 		}
 		if h.Lines != nil {
 			lines := h.Lines
@@ -902,11 +907,12 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:  "search",
 			Short: "Search concepts by tag, type, or text",
-			Long:  "Filters concepts in a bundle by tag (--tag), frontmatter type (--type), or full-text search in title, description, and body (positional terms and/or --text). Positional terms are split on whitespace (including the full-width space); --text is matched as one phrase. Text matching is substring-based, so it works for languages written without spaces such as Japanese; it ignores case, full-width/half-width ASCII, and katakana/hiragana. Multiple terms and filters are AND-combined. With text terms, results are ranked (title matches first, then by number of matching lines) and each carries up to 5 matching body lines with file line numbers (matches) and the total (match_count). The first positional argument is taken as the bundle when it is a directory or contains a slash; otherwise the bundle is $OKF_BUNDLE or the current directory. With no filters, returns all concepts. JSON output is capped at 50 results unless --limit is given; count is the total and truncated tells whether some were left out.",
+			Long:  "Filters concepts in a bundle by tag (--tag), frontmatter type (--type), or full-text search in title, description, and body (positional terms and/or --text). Positional terms are split on whitespace (including the full-width space); --text is matched as one phrase. Text matching is substring-based, so it works for languages written without spaces such as Japanese; it ignores case, full-width/half-width ASCII, and katakana/hiragana. Multiple terms and filters are AND-combined. With text terms, results are ranked (title matches first, then by number of matching lines) and each carries up to 5 matching body lines with file line numbers (matches) and the total (match_count). The first positional argument is taken as the bundle when it is a directory or contains a slash; otherwise the bundle is $OKF_BUNDLE or the current directory. With no filters, returns all concepts. With --meta, text terms are matched only against the title, frontmatter description, tags, and the line of an index.md that links to the page; the body is not searched, and each result carries a description (the frontmatter description, else that index line) instead of matches. JSON output is capped at 50 results unless --limit is given; count is the total and truncated tells whether some were left out.",
 			Flags: []schemaFlag{
 				{Name: "tag", Type: "string", Default: "", Description: "filter by tag (case-insensitive)"},
 				{Name: "type", Type: "string", Default: "", Description: "filter by frontmatter type (case-insensitive)"},
 				{Name: "text", Type: "string", Default: "", Description: "full-text search in title, description, and body (case-insensitive)"},
+				{Name: "meta", Type: "bool", Default: "false", Description: "match terms against title, description, tags and index.md entries only, not the body; results carry description instead of matches"},
 				{Name: "limit", Type: "int", Default: "50 when JSON, none for plain text", Description: "return at most N results; 0 returns all. count is always the full total, and truncated is true when results were left out"},
 			},
 			Args: []schemaArg{
