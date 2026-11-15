@@ -1,4 +1,4 @@
-.PHONY: build test test-race cover cover-html vet check clean tidy install
+.PHONY: build test test-race cover cover-html vet lint check clean tidy install
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -30,7 +30,10 @@ cover-html: cover
 vet:
 	go vet ./...
 
-check: vet test-race
+lint:
+	golangci-lint run ./...
+
+check: vet lint test-race
 
 clean:
 	rm -rf bin/ coverage.out coverage.html
