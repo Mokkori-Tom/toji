@@ -10,6 +10,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,8 @@ func main() {
 		runNew(rest)
 	case "toc":
 		runToc(rest)
+	case "append":
+		runAppend(rest)
 	case "edit":
 		runEdit(rest)
 	case "completion":
@@ -106,9 +109,9 @@ current directory.
 Commands:
   schema [command]            Print machine-readable CLI metadata as JSON
   init <bundle>               Create a new empty OKF bundle
-  validate <bundle>           Validate a bundle against the OKF spec
-  lint <bundle>               Check recommended fields and style (warnings only)
-  index [bundle]              Update index.md files (--dry-run, --fill-descriptions)
+  validate [bundle]           Validate a bundle against the OKF spec (--errors-only, --id)
+  lint [bundle]               Check recommended fields and style (warnings only)
+  index [bundle]              Update index.md files (--dir, --diff, --dry-run, --fill-descriptions)
   list <bundle>               List concepts in the bundle (JSON: first 50, --limit N)
   show <bundle> <concept-id> Show a single concept's full content
   search <bundle> [terms...]  Search concepts by text terms, --tag, --type, --meta, --limit
@@ -116,6 +119,8 @@ Commands:
                               or open it in $EDITOR on a terminal (see toji new -h)
   edit <bundle> <concept-id>  Open a page in $EDITOR (v in the show pager does the same)
   toc [bundle] <concept-id>   Write a table of contents into a page (--depth, --remove)
+  append [bundle] <concept-id> --body <text>|-
+                              Add markdown to the end of a page or of a --section
   completion zsh|bash         Print a shell completion script (page IDs, tags, types)
   backlinks <bundle> <id>    List concepts that link to a given concept
   graph <bundle>             Print cross-link graph statistics
@@ -255,10 +260,24 @@ func runValidate(args []string, strict bool) {
 	format := "json"
 	exitZero := false
 	strictMode := false
+	errorsOnly := false
+	var ids []string
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--strict":
 			strictMode = true
+		case "--errors-only":
+			// lint reports warnings only, so the flag only exists on validate.
+			if !strict {
+				exitErr(cerr.Usage("unknown lint flag: --errors-only"))
+			}
+			errorsOnly = true
+		case "--id":
+			if i+1 >= len(args) {
+				exitErr(cerr.Usage("--id requires a concept ID or folder"))
+			}
+			ids = append(ids, strings.TrimSuffix(strings.TrimSuffix(args[i+1], ".md"), "/"))
+			i++
 		case "--format":
 			if i+1 >= len(args) {
 				exitErr(cerr.Usage("--format requires a value"))
@@ -294,17 +313,31 @@ func runValidate(args []string, strict bool) {
 	}
 	r := validate.ValidateWith(b, validate.Options{Strict: strictMode})
 
-	// lint reports warnings only; validate reports everything.
+	// lint reports warnings only; validate reports everything, or with
+	// --errors-only just the errors. --id narrows both to some pages, and
+	// the counts, valid and the exit code then describe those pages alone.
 	kept := make([]validate.Finding, 0, len(r.Findings))
+	errs, warns := 0, 0
 	for _, f := range r.Findings {
 		if !strict && f.Severity == validate.SeverityError {
 			continue
+		}
+		if len(ids) > 0 && !matchesID(f.ConceptID, ids) {
+			continue
+		}
+		if f.Severity == validate.SeverityError {
+			errs++
+		} else {
+			warns++
+			if errorsOnly {
+				continue
+			}
 		}
 		kept = append(kept, f)
 	}
 
 	if format == "json" && humanOut {
-		printFindings(kept, r.Errors, len(kept)-r.Errors, strict)
+		printFindings(kept, errs, warns, strict)
 	} else if format == "sarif" {
 		out, err := validate.SARIF(kept, version)
 		if err != nil {
@@ -326,16 +359,27 @@ func runValidate(args []string, strict bool) {
 			"command":  commandName(strict),
 			"bundle":   b.Root,
 			"findings": findings,
-			"errors":   r.Errors,
-			"warnings": r.Warnings,
-			"valid":    !r.HasErrors(),
+			"errors":   errs,
+			"warnings": warns,
+			"valid":    errs == 0,
 			"strict":   strictMode,
 		})
 	}
 
-	if strict && r.HasErrors() && !exitZero {
+	if strict && errs > 0 && !exitZero {
 		os.Exit(cerr.ExitCodeValidation)
 	}
+}
+
+// matchesID reports whether a finding's concept ID is one of ids or inside a
+// folder named in ids.
+func matchesID(conceptID string, ids []string) bool {
+	for _, id := range ids {
+		if id == "." || conceptID == id || strings.HasPrefix(conceptID, id+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func commandName(strict bool) string {
@@ -350,18 +394,29 @@ func commandName(strict bool) string {
 func runIndex(args []string) {
 	var opt index.Options
 	var pos []string
-	for _, a := range args {
-		switch a {
+	for i := 0; i < len(args); i++ {
+		switch a := args[i]; a {
 		case "--dry-run":
 			opt.DryRun = true
 		case "--fill-descriptions":
 			opt.FillDescriptions = true
+		case "--diff":
+			opt.Diff = true
+		case "--dir":
+			if i+1 >= len(args) {
+				exitErr(cerr.Usage("--dir requires a folder"))
+			}
+			opt.Dirs = append(opt.Dirs, args[i+1])
+			i++
 		default:
 			if strings.HasPrefix(a, "-") {
 				exitErr(cerr.Usage("unknown index flag: %s", a))
 			}
 			pos = append(pos, a)
 		}
+	}
+	if len(pos) > 1 {
+		exitErr(cerr.Usage("unexpected argument: %s (one bundle; folders go in --dir)", pos[1]))
 	}
 	if len(pos) == 0 {
 		pos = []string{defaultBundle()}
@@ -375,6 +430,10 @@ func runIndex(args []string) {
 	}
 	res, err := index.Generate(root, opt)
 	if err != nil {
+		var de *index.DirError
+		if errors.As(err, &de) {
+			exitErr(cerr.Validation("--dir: %s", de))
+		}
 		exitErr(cerr.IO(err, "generate index in %s", root))
 	}
 
@@ -386,13 +445,25 @@ func runIndex(args []string) {
 		if !ir.HasDescription {
 			noDesc = append(noDesc, ir.Dir)
 		}
-		indexes = append(indexes, map[string]any{
+		m := map[string]any{
 			"path":            ir.Path,
 			"dir":             ir.Dir,
 			"status":          ir.Status,
 			"entries":         ir.Entries,
 			"has_description": ir.HasDescription,
-		})
+		}
+		if opt.Diff && ir.Diff != "" {
+			m["diff"] = ir.Diff
+		}
+		indexes = append(indexes, m)
+	}
+	if humanOut && opt.Diff {
+		for _, ir := range res.Indexes {
+			fmt.Print(ir.Diff)
+		}
+		fmt.Fprintf(os.Stderr, "%d created, %d updated, %d unchanged%s\n",
+			counts["created"], counts["updated"], counts["unchanged"], map[bool]string{true: " (dry run)"}[opt.DryRun])
+		return
 	}
 	if noDesc == nil {
 		noDesc = []string{}
@@ -895,8 +966,10 @@ func allSchemaCommands() []schemaCommand {
 				{Name: "strict", Type: "bool", Default: "false", Description: "check as OKF only: notes without frontmatter or type are errors with the full field checks, and [[wikilinks]] are reported. By default such notes get one warning and wikilinks are not checked"},
 				{Name: "format", Type: "string", Default: "json", Description: "output format: json or sarif (SARIF 2.1.0)"},
 				{Name: "exit-zero", Type: "bool", Default: "false", Description: "always exit 0, even when errors are found (for CI steps that upload findings after the run)"},
+				{Name: "errors-only", Type: "bool", Default: "false", Description: "list only the errors; warnings are still counted"},
+				{Name: "id", Type: "string", Default: "", Description: "only findings for this concept ID, or for the pages under this folder; may be repeated. errors, warnings, valid and the exit code then cover those pages alone"},
 			},
-			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Args:      []schemaArg{{Name: "bundle", Required: false}},
 			Stdout:    "json|sarif",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},
@@ -907,16 +980,19 @@ func allSchemaCommands() []schemaCommand {
 			Flags: []schemaFlag{
 				{Name: "strict", Type: "bool", Default: "false", Description: "check as OKF only: notes without frontmatter or type are errors with the full field checks, and [[wikilinks]] are reported. By default such notes get one warning and wikilinks are not checked"},
 				{Name: "format", Type: "string", Default: "json", Description: "output format: json or sarif (SARIF 2.1.0)"},
+				{Name: "id", Type: "string", Default: "", Description: "only findings for this concept ID, or for the pages under this folder; may be repeated"},
 			},
-			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Args:      []schemaArg{{Name: "bundle", Required: false}},
 			Stdout:    "json|sarif",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},
 		{
 			Name:  "index",
 			Short: "Update index.md files (progressive disclosure)",
-			Long:  "Writes or updates index.md in every directory that has pages, folders of pages, or an index.md already (OKF §6). Hand-written parts are kept: the heading and the paragraph under it, which describes the folder, and any section that is not a plain list of links. The link lists are rebuilt: folders (summary: the paragraph at the top of the folder's own index.md), pages (summary: the frontmatter description) and other files, as '- [name](./target) - summary'; a summary already in the index is kept where the page or folder gives none. Section headings follow the ones the bundle already uses. JSON output: indexes (path, dir, status created|updated|unchanged, entries, has_description), counts, missing_description (folders whose index has no paragraph to write by hand), filled_descriptions. --dry-run reports without writing. --fill-descriptions copies the index summary into the frontmatter description of pages that have none (summaries ending in … are skipped as truncated).",
+			Long:  "Writes or updates index.md in every directory that has pages, folders of pages, or an index.md already (OKF §6). Hand-written parts are kept: the heading and the paragraph under it, which describes the folder, and any section that is not a plain list of links. The link lists are rebuilt: folders (summary: the paragraph at the top of the folder's own index.md), pages (summary: the frontmatter description) and other files, as '- [name](./target) - summary'; a summary already in the index is kept where the page or folder gives none. Section headings follow the ones the bundle already uses. JSON output: indexes (path, dir, status created|updated|unchanged, entries, has_description), counts, missing_description (folders whose index has no paragraph to write by hand), filled_descriptions. --dry-run reports without writing. --dir limits the run to the named folders (each on its own, not its subfolders), so adding one page touches one index. --diff adds a unified diff to each changed index (diff in JSON; on a terminal the diffs are printed). A folder's paragraph counts only when it has text: list items and lines of bare markup are skipped. Links already in an index keep their text and target as written, and a change in the final newline alone is not a change. --fill-descriptions copies the index summary into the frontmatter description of pages that have none (summaries ending in … are skipped as truncated).",
 			Flags: []schemaFlag{
+				{Name: "dir", Type: "string", Default: "", Description: "bundle-relative folder to update (\".\" is the root); may be repeated. Without it every folder is updated"},
+				{Name: "diff", Type: "bool", Default: "false", Description: "include a unified diff of each changed index; combine with --dry-run to preview"},
 				{Name: "dry-run", Type: "bool", Default: "false", Description: "report what would change; write nothing"},
 				{Name: "fill-descriptions", Type: "bool", Default: "false", Description: "add description to pages that lack one, from their index entry"},
 			},
@@ -929,7 +1005,7 @@ func allSchemaCommands() []schemaCommand {
 			Short:     "List all concepts in the bundle",
 			Long:      "Lists concept documents with their ID, type, title, lifecycle status, and trust tier (unverified, machine-confirmed, or human-reviewed). JSON output is capped at 50 concepts unless --limit is given; count is the total and truncated tells whether some were left out, so narrow with toji search instead of raising the limit.",
 			Flags:     []schemaFlag{{Name: "limit", Type: "int", Default: "50 when JSON, none for plain text", Description: "return at most N results; 0 returns all. count is always the full total, and truncated is true when results were left out"}},
-			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Args:      []schemaArg{{Name: "bundle", Required: false}},
 			Stdout:    "json",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},
@@ -942,7 +1018,7 @@ func allSchemaCommands() []schemaCommand {
 			},
 			Long: "On a terminal the page is rendered and long pages open in a pager; with less, press v to open the page's file in the editor. Accepts a concept ID or a path to an existing .md file; a file path is read directly without loading the rest of the bundle, and a file without frontmatter is shown with empty frontmatter. Returns the concept's ID, file path, frontmatter (type, title, description, resource, tags), trust and lifecycle state (status, trust_tier, stale, generated, verified, stale_after), provenance (sources, usage_window), the Attested Computation contract when present (runtime, parameters, computation, executor, attester), and markdown body as JSON.",
 			Args: []schemaArg{
-				{Name: "bundle", Required: true},
+				{Name: "bundle", Required: false},
 				{Name: "concept-id", Required: true},
 			},
 			Stdout:    "json",
@@ -992,7 +1068,7 @@ func allSchemaCommands() []schemaCommand {
 			Short: "List concepts that link to a given concept",
 			Long:  "Returns the IDs of all concepts in the bundle that contain a markdown link to the specified concept. Deduplicates multiple links from the same source.",
 			Args: []schemaArg{
-				{Name: "bundle", Required: true},
+				{Name: "bundle", Required: false},
 				{Name: "concept-id", Required: true},
 			},
 			Stdout:    "json",
@@ -1003,7 +1079,7 @@ func allSchemaCommands() []schemaCommand {
 			Short:     "Print cross-link graph statistics",
 			Long:      "Builds the directed cross-link graph from concept markdown links and prints nodes, edges, and summary statistics. The statistics always cover the whole graph; the nodes and edges lists are each capped at 50 unless --limit is given, with truncated set when either was cut.",
 			Flags:     []schemaFlag{{Name: "limit", Type: "int", Default: "50 when JSON, none for plain text", Description: "return at most N nodes and N edges; 0 returns all. The counts and statistics are always for the whole graph"}},
-			Args:      []schemaArg{{Name: "bundle", Required: true}},
+			Args:      []schemaArg{{Name: "bundle", Required: false}},
 			Stdout:    "json",
 			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
 		},
@@ -1015,6 +1091,22 @@ func allSchemaCommands() []schemaCommand {
 				{Name: "depth", Type: "int", Default: "3", Description: "deepest heading level listed (1-6)"},
 				{Name: "remove", Type: "bool", Default: "false", Description: "remove the table of contents and its markers"},
 				{Name: "dry-run", Type: "bool", Default: "false", Description: "report what would change; write nothing"},
+			},
+			Args: []schemaArg{
+				{Name: "bundle", Required: false},
+				{Name: "concept-id", Required: true},
+			},
+			Stdout:    "json",
+			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
+		},
+		{
+			Name:  "append",
+			Short: "Add markdown to the end of a page or of a section",
+			Long:  "Adds the --body markdown to an existing page without changing what is there: at the end of the page, or with --section at the end of the section under that heading (before the next heading of the same or a higher level, so its subsections stay inside). The heading is matched by its text, ignoring leading #s, case and runs of spaces; headings in code fences and the frontmatter do not count, and a heading that is missing or appears twice is an error that names the choices. The block is set off by one blank line on each side. This is how an agent adds a related link or a follow-up to a page it did not create, where toji new would refuse and toji edit needs a terminal. Accepts a concept ID or a path to an .md file. --dry-run reports without writing. JSON output: id, path, section, line (1-based line where the block starts), dry_run.",
+			Flags: []schemaFlag{
+				{Name: "body", Type: "string", Default: "", Description: "markdown to add (required); - reads it from stdin"},
+				{Name: "section", Type: "string", Default: "", Description: "heading text of the section to add to; without it the block goes at the end of the page"},
+				{Name: "dry-run", Type: "bool", Default: "false", Description: "report where the block would go; write nothing"},
 			},
 			Args: []schemaArg{
 				{Name: "bundle", Required: false},

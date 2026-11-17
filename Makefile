@@ -9,7 +9,7 @@ LDFLAGS := -s -w \
 	-X main.date=$(DATE)
 
 build:
-	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/okf ./cmd/okf
+	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/toji ./cmd/toji
 
 tidy:
 	go mod tidy
@@ -39,4 +39,4 @@ clean:
 	rm -rf bin/ coverage.out coverage.html
 
 install: build
-	cp bin/okf $(GOPATH)/bin/okf
+	cp bin/toji $(GOPATH)/bin/toji

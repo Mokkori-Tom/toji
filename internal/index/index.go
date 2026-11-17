@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -28,8 +29,10 @@ import (
 
 // Options controls Generate.
 type Options struct {
-	DryRun           bool // report what would change without writing
-	FillDescriptions bool // give pages without a frontmatter description the summary their index carries
+	DryRun           bool     // report what would change without writing
+	FillDescriptions bool     // give pages without a frontmatter description the summary their index carries
+	Dirs             []string // bundle-relative folders to update ("." is the root); empty means every folder
+	Diff             bool     // fill IndexResult.Diff with a unified diff of each change
 }
 
 // Result reports what Generate did, or with DryRun would do.
@@ -45,10 +48,12 @@ type IndexResult struct {
 	Status         string // created, updated, unchanged
 	HasDescription bool   // a paragraph under the heading describes the folder
 	Entries        int
+	Diff           string // unified diff from the old index to the new, with Options.Diff
 }
 
 // Generate updates index.md in every directory of root that has pages, folders
-// of pages, or an index.md already, and returns what changed.
+// of pages, or an index.md already, and returns what changed. With opt.Dirs
+// only those folders are updated, each on its own (not its subfolders).
 func Generate(root string, opt Options) (*Result, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -60,6 +65,18 @@ func Generate(root string, opt Options) (*Result, error) {
 	}
 	g := &generator{root: absRoot, opt: opt, names: detectNames(absRoot)}
 	res := &Result{}
+	if len(opt.Dirs) > 0 {
+		for _, d := range opt.Dirs {
+			dir, err := g.resolveDir(d)
+			if err != nil {
+				return nil, err
+			}
+			if err := g.dir(dir, res); err != nil {
+				return nil, err
+			}
+		}
+		return res, nil
+	}
 	err = filepath.WalkDir(absRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -77,6 +94,32 @@ func Generate(root string, opt Options) (*Result, error) {
 	}
 	return res, nil
 }
+
+// resolveDir turns a bundle-relative folder into an absolute path inside the
+// bundle, refusing one that is missing, not a folder, or outside the bundle.
+func (g *generator) resolveDir(d string) (string, error) {
+	rel := filepath.Clean(filepath.FromSlash(strings.TrimSuffix(d, "/")))
+	if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", &DirError{Dir: d, Reason: "is not inside the bundle"}
+	}
+	dir := filepath.Join(g.root, rel)
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", &DirError{Dir: d, Reason: "does not exist"}
+	}
+	if !info.IsDir() {
+		return "", &DirError{Dir: d, Reason: "is not a folder"}
+	}
+	return dir, nil
+}
+
+// DirError is an Options.Dirs entry that cannot be indexed.
+type DirError struct {
+	Dir    string
+	Reason string
+}
+
+func (e *DirError) Error() string { return "folder " + e.Dir + " " + e.Reason }
 
 // role is what a list section holds.
 type role int
@@ -205,10 +248,15 @@ func (g *generator) dir(dir string, res *Result) error {
 	switch {
 	case !hasIndex:
 		ir.Status = "created"
-	case text == oldText:
+	case strings.TrimRight(text, "\n") == strings.TrimRight(oldText, "\n"):
+		// Only the final newline differs: not worth a write.
+		text = oldText
 		ir.Status = "unchanged"
 	default:
 		ir.Status = "updated"
+	}
+	if g.opt.Diff && ir.Status != "unchanged" {
+		ir.Diff = unifiedDiff(oldText, text, filepath.ToSlash(filepath.Join(rel, "index.md")))
 	}
 	if ir.Status != "unchanged" && !g.opt.DryRun {
 		if err := os.WriteFile(indexPath, []byte(text), 0644); err != nil { //nolint:gosec // the bundle's own index.md
@@ -268,6 +316,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	// replaces it. Targets linked from a hand-written section are not
 	// listed again.
 	oldDesc := map[string]string{}
+	oldEntry := map[string]entry{}
 	pinned := map[string]bool{}
 	done := map[role]bool{}
 	oldOrder := map[role][]string{}
@@ -278,6 +327,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 				if e.desc != "" {
 					oldDesc[e.name()] = e.desc
 				}
+				oldEntry[e.name()] = e
 				if r == roleOther {
 					pinned[e.name()] = true
 				} else {
@@ -293,6 +343,15 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 		}
 		return fresh
 	}
+	// A link already in the index keeps its text and target as written
+	// ("GTDandOKF/" stays, not "./GTDandOKF/"), so a run changes only what
+	// the folder's contents changed.
+	link := func(name string, fresh entry) entry {
+		if o, ok := oldEntry[name]; ok {
+			fresh.text, fresh.target = o.text, o.target
+		}
+		return fresh
+	}
 	build := func(r role) []entry {
 		var out []entry
 		switch r {
@@ -302,7 +361,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 					continue
 				}
 				d := desc(f, introParagraph(readHead(filepath.Join(dir, f, "index.md"))))
-				out = append(out, entry{text: f + "/", target: "./" + escape(f) + "/", desc: d})
+				out = append(out, link(f, entry{text: f + "/", target: "./" + escape(f) + "/", desc: d}))
 			}
 		case roleDoc:
 			for _, p := range keepOrder(l.pages, oldOrder[r]) {
@@ -310,14 +369,14 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 					continue
 				}
 				d := desc(p, pageDescription(filepath.Join(dir, p)))
-				out = append(out, entry{text: strings.TrimSuffix(p, ".md"), target: "./" + escape(p), desc: d})
+				out = append(out, link(p, entry{text: strings.TrimSuffix(p, ".md"), target: "./" + escape(p), desc: d}))
 			}
 		case roleFile:
 			for _, f := range keepOrder(l.files, oldOrder[r]) {
 				if pinned[f] {
 					continue
 				}
-				out = append(out, entry{text: f, target: "./" + escape(f), desc: oldDesc[f]})
+				out = append(out, link(f, entry{text: f, target: "./" + escape(f), desc: oldDesc[f]}))
 			}
 		}
 		return out
@@ -507,7 +566,9 @@ func readHead(path string) []string {
 }
 
 // introParagraph is the first paragraph under the heading: the folder's
-// description, as one line.
+// description, as one line. List items, and lines with nothing but markup
+// (a left-over "* []() -"), are not a description: they would replace a
+// good summary in the parent's index with noise.
 func introParagraph(head []string) string {
 	var para []string
 	for _, line := range head {
@@ -515,7 +576,7 @@ func introParagraph(head []string) string {
 		switch {
 		case strings.HasPrefix(t, "#"):
 			continue
-		case t == "":
+		case t == "", listItemRE.MatchString(t), !hasText(t):
 			if len(para) > 0 {
 				return strings.Join(para, " ")
 			}
@@ -525,6 +586,26 @@ func introParagraph(head []string) string {
 	}
 	return strings.Join(para, " ")
 }
+
+var listItemRE = regexp.MustCompile(`^(?:[-*+]|\d+[.)])(?:\s|$)`)
+
+// hasText reports whether line has a letter or digit outside link targets,
+// HTML comments and markup.
+func hasText(line string) bool {
+	line = linkTargetRE.ReplaceAllString(line, "]")
+	line = commentRE.ReplaceAllString(line, "")
+	for _, r := range line {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	linkTargetRE = regexp.MustCompile(`\]\([^)]*\)`)
+	commentRE    = regexp.MustCompile(`<!--.*?-->`)
+)
 
 // pageDescription is the page's frontmatter description on one line.
 func pageDescription(path string) string {

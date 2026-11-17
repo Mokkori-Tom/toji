@@ -48,6 +48,6 @@ Read `SOUL.md` as part of your identity and communication style.
 
 - ノートは OKF バンドル（場所は環境変数 TOJI_BUNDLE）。検索・閲覧・作成・検証には `toji` コマンドを使う。バンドルの引数は省略できる。
 - 使い方は `toji help` と `toji <command> -h` で調べる。
-- 既存のノートを削除・上書きしない。`toji new` が「already exists」で止まったら、消さずに別の ID にするか、既存ノートへの追記でよいかをユーザーに聞く。
+- 既存のノートを削除・上書きしない。`toji new` が「already exists」で止まったら、消さずに別の ID にするか、既存ノートへの追記でよいかをユーザーに聞く。追記してよければ `toji append <ID> --body -`（節の末尾なら `--section <見出し>`）で足す。
 - ユーザーの環境・過去の作業・設定・検証結果、それに PicoClaw 自身やこのマシンで使っているツールの挙動・設定についての質問は、自分の知識・web 検索・ソースコードより先に、まず `toji search` でノートを調べる。
 - 見つかったら `toji show <ID>` で本文を読み、書いてあることを根拠に答える。検索結果の一覧だけで「ノートに無い」と判断しない。ノートに無ければ、無かったと言ってから一般論を補う。

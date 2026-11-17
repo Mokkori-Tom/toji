@@ -41,18 +41,32 @@ MD
 
 - 1 回の呼び出しで完成したページを作る。エディタは開かない。
 - 既存のページは上書きも削除もしない。`already exists` で止まったら、別の ID にするか既存ページへの追記でよいかをユーザーに聞く。
-- 書いたあとは `toji validate` でエラーが無いことを確かめる（警告は直さなくてよい）。
+- 既存のページに足すときは `toji append` を使う（ファイルを直接編集しない）。既にある部分は変わらない。
+
+```sh
+toji append notes/<id> --section "関連" --body - <<'MD'   # その節の末尾に足す。--section が無ければページの末尾
+- [新しいページ](./new-page.md)
+MD
+```
+
+  見出しが無い・2 つあるときはエラーになり、ページの見出し一覧が返る。新しく書いたページから既存ページへリンクしたら、
+  既存ページ側にも逆向きのリンクを足すか、ユーザーに聞く。
+- 書いたあとは `toji validate --errors-only --id <id>` で、そのページにエラーが無いことを確かめる（警告は直さなくてよい）。
 - 見出しの多い長いページは `toji toc <id>` で冒頭に目次を書ける（`<!-- toc -->` の間。何度実行しても作り直すだけ）。
 
 ## 点検する
 
 ```sh
-toji validate        # errors > 0 なら findings の rule と message を見て直す
-toji lint            # 推奨フィールドの不足（警告のみ）
-toji graph           # node_count, isolated（孤立ページ）など
-toji index --dry-run # index.md の更新内容を確かめる（書き込まない）
-toji index           # 各フォルダの index.md のリンク一覧を書き直す
+toji validate --errors-only         # errors > 0 なら findings の rule と message を見て直す（警告は数だけ）
+toji validate --id <フォルダ or ID>  # 一部のページだけ。errors・valid・終了コードもその範囲だけ
+toji lint                           # 推奨フィールドの不足（警告のみ）
+toji graph                          # node_count, isolated（孤立ページ）など
+toji index --dir <フォルダ> --dry-run --diff   # そのフォルダの index.md がどう変わるかを差分で見る
+toji index --dir <フォルダ>         # そのフォルダの index.md だけを書き直す
 ```
+
+- ページを足したあとの `index` は、そのページのフォルダだけを `--dir` で直す。引数なしの `toji index` はバンドル全体を書き換えるので、
+  ユーザーに頼まれたときだけ使い、先に `--dry-run --diff` で関係ない変更が無いか見る。
 
 - `index` は手書きの部分（見出し、その下のフォルダ説明の段落、リンク一覧でない節）を残し、フォルダ・ページ・ファイルのリンク一覧だけを作り直す。
   ページの要約は frontmatter の description、フォルダの要約はそのフォルダの index.md 冒頭の段落。どちらも無ければ index に書いてある要約を残す。

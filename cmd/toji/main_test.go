@@ -381,3 +381,117 @@ func TestE2E_StaleAfterDatetimeIsValid(t *testing.T) {
 		t.Errorf("show stale_after = %q, want verbatim %q", got.Concept.StaleAfter, "2026-09-23T00:00:00Z")
 	}
 }
+
+// --- validate --id / --errors-only narrow the report ---
+
+func TestE2E_ValidateFilters(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "good/a.md"), "---\ntype: Note\n---\n\nbody")            // warnings only
+	writeFile(t, filepath.Join(dir, "bad/b.md"), "---\ntype: Note\ntitle: [unclosed\n---\n\nx") // an error
+
+	var r struct {
+		Findings []struct {
+			ConceptID string `json:"concept_id"`
+			Severity  string `json:"severity"`
+		} `json:"findings"`
+		Errors, Warnings int
+		Valid            bool
+	}
+	out, code := runOKF(t, "validate", dir, "--id", "good")
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("bad json %q", out)
+	}
+	if code != 0 || !r.Valid || r.Errors != 0 || r.Warnings == 0 {
+		t.Errorf("--id good: exit %d, %+v", code, r)
+	}
+	for _, f := range r.Findings {
+		if !strings.HasPrefix(f.ConceptID, "good/") {
+			t.Errorf("--id good reported %s", f.ConceptID)
+		}
+	}
+
+	r.Findings = nil
+	out, code = runOKF(t, "validate", "--errors-only", dir)
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("bad json %q", out)
+	}
+	if code != cerr.ExitCodeValidation || r.Errors == 0 || r.Warnings == 0 {
+		t.Errorf("--errors-only: exit %d, %+v", code, r)
+	}
+	for _, f := range r.Findings {
+		if f.Severity != "ERROR" {
+			t.Errorf("--errors-only listed a %s", f.Severity)
+		}
+	}
+	if _, code := runOKF(t, "lint", "--errors-only", dir); code != cerr.ExitCodeUsage {
+		t.Errorf("lint --errors-only: exit %d, want usage", code)
+	}
+}
+
+// --- append adds to a page an agent did not create ---
+
+func TestE2E_Append(t *testing.T) {
+	dir := t.TempDir()
+	page := filepath.Join(dir, "notes/a.md")
+	writeFile(t, page, "---\ntype: Note\n---\n\n# A\n\n## 関連\n\n- [x](./x.md)\n\n## 残課題\n\n- [ ] y\n")
+
+	cmd := exec.Command(okfBin, "append", dir, "notes/a", "--section", "関連", "--body", "-") //nolint:gosec // test binary
+	cmd.Stdin = strings.NewReader("- [z](./z.md)\n")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("append: %v %s", err, out)
+	}
+	var r struct {
+		Line int    `json:"line"`
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(out, &r); err != nil || r.Line != 10 {
+		t.Errorf("append output %s (%v)", out, err)
+	}
+	want := "---\ntype: Note\n---\n\n# A\n\n## 関連\n\n- [x](./x.md)\n- [z](./z.md)\n\n## 残課題\n\n- [ ] y\n"
+	if raw, _ := os.ReadFile(page); string(raw) != want {
+		t.Errorf("page:\n%s\nwant:\n%s", raw, want)
+	}
+
+	out2, code := runOKF(t, "append", dir, "notes/a", "--section", "無い", "--body", "x")
+	if code != cerr.ExitCodeValidation || !strings.Contains(out2, "関連") {
+		t.Errorf("missing section: exit %d, %s", code, out2)
+	}
+	if _, code := runOKF(t, "append", dir, "notes/a"); code != cerr.ExitCodeUsage {
+		t.Errorf("no --body: exit %d, want usage", code)
+	}
+	if _, code := runOKF(t, "append", dir, "notes/a", "--body", "x", "--dry-run"); code != 0 {
+		t.Errorf("--dry-run: exit %d", code)
+	}
+	if raw, _ := os.ReadFile(page); string(raw) != want {
+		t.Error("--dry-run wrote the page")
+	}
+}
+
+// --- index --dir touches one folder; --diff shows the change ---
+
+func TestE2E_IndexDirAndDiff(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.md"), "# Index\n\nroot\n")
+	writeFile(t, filepath.Join(dir, "a/index.md"), "# a\n\nfolder a\n")
+	writeFile(t, filepath.Join(dir, "a/p.md"), "---\ntype: Note\ndescription: p\n---\n\nbody")
+
+	out, code := runOKF(t, "index", dir, "--dir", "a", "--diff", "--dry-run")
+	if code != 0 {
+		t.Fatalf("index: exit %d %s", code, out)
+	}
+	var r struct {
+		Indexes []struct {
+			Dir, Status, Diff string
+		} `json:"indexes"`
+	}
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("bad json %q", out)
+	}
+	if len(r.Indexes) != 1 || r.Indexes[0].Dir != "a" || !strings.Contains(r.Indexes[0].Diff, "+- [p](./p.md) - p") {
+		t.Errorf("result: %+v", r.Indexes)
+	}
+	if out, code := runOKF(t, "index", dir, "--dir", "nope"); code != cerr.ExitCodeValidation {
+		t.Errorf("--dir nope: exit %d %s", code, out)
+	}
+}

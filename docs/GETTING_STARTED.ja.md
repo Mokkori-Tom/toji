@@ -72,6 +72,8 @@ toji show gpu-fan                       # ID で読む
 toji show 日記/2026-10-22.md            # ファイルの path でも読める
 toji edit gpu-fan                       # エディタで開く(show の画面で v を押しても同じ)
 toji toc gpu-fan                       # ページの見出しの目次を <!-- toc --> の間に書く(2回目からは作り直し)
+toji append gpu-fan --section 関連 --body "- [電源](./電源.md)"
+                                       # 既存のページに追記する(--section が無ければ末尾)。他は変えない
 toji new 2026-10-27 --template daily    # テンプレートから作る(下の「テンプレート」を参照)
 toji list                               # 一覧
 toji index --dry-run                   # 各フォルダの index.md をどう直すか見る(書き込まない)
@@ -79,6 +81,7 @@ toji index                             # index.md のリンク一覧を作り直
                                        # リンク一覧でない節は手書きのまま残る(下の「index.md」を参照)
 toji backlinks gpu-fan                  # このページへリンクしているページ
 toji validate                           # OKF の規格どおりかを検査
+toji validate --errors-only --id 日記    # エラーだけ、日記フォルダの分だけ見る
 toji new -h                             # どのコマンドも -h / --help でヘルプ(toji help new も同じ)
 ```
 
@@ -158,10 +161,15 @@ PicoClaw の既定の文面に 5 行(toji を使うこと、使い方の調べ�
   どちらも無ければ、index に書いてある要約をそのまま残します。並び順も index に書いてある順が残り、
   新しいものが末尾に足されます。
 - 節の見出し(`## フォルダ` `## 文書` `## ファイル`)は、bundle で使われているものに合わせます。
+- フォルダの説明として数えるのは、文字のある段落だけです。箇条書きや、書きかけの `* []() -` のような
+  記号だけの行は説明になりません(親の index にある要約を壊さないため)。
+- index に既にあるリンクは、書いてあるとおりの表記(`(フォルダ/)` など)を残します。
+  末尾の改行の有無だけの違いでは書き換えません。
 
 ```bash
-toji index --dry-run      # 何が変わるかだけ見る。missing_description は段落の無いフォルダ
-toji index                # 書き込む
+toji index --dry-run --diff   # 何がどう変わるかを差分で見る。missing_description は段落の無いフォルダ
+toji index --dir 日記/2026/11  # そのフォルダの index.md だけを直す(何度でも指定できる。下の階層は含まない)
+toji index                # 全フォルダに書き込む
 toji index --fill-descriptions   # index の要約を、description の無いページの frontmatter に写す
 ```
 

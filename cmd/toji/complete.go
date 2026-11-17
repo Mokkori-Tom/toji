@@ -90,6 +90,7 @@ _okf() {
     'show:show a page (rendered on a terminal)'
     'edit:open a page in $EDITOR'
     'toc:write a table of contents into a page'
+    'append:add markdown to the end of a page or a section'
     'new:create a page and open it in $EDITOR'
     'list:list pages'
     'backlinks:list pages that link to a page'
@@ -116,8 +117,10 @@ _okf() {
     --tag)  compadd -- ${(f)"$(_okf_lines tags $bundle)"}; return ;;
     --type) compadd -- ${(f)"$(_okf_lines types $bundle)"}; return ;;
     --template) compadd -- ${(f)"$(_okf_lines templates $bundle)"}; _files -g '*.md'; return ;;
-    --title|--description|--text) return ;;
+    --title|--description|--text|--body|--section) return ;;
     --format) compadd -- json sarif; return ;;
+    --id) compadd -- ${(f)"$(_okf_lines ids $bundle)"}; return ;;
+    --dir) _files -/; return ;;
   esac
 
   if [[ $cur == -* ]]; then
@@ -127,15 +130,17 @@ _okf() {
       list|graph) compadd -- --limit $common ;;
       new)      compadd -- --title --type --tag --description --status --body --template --no-edit $common ;;
       toc)      compadd -- --depth --remove --dry-run $common ;;
-      validate) compadd -- --format --exit-zero $common ;;
-      lint)     compadd -- --format $common ;;
+      append)   compadd -- --body --section --dry-run $common ;;
+      index)    compadd -- --dir --diff --dry-run --fill-descriptions $common ;;
+      validate) compadd -- --format --exit-zero --errors-only --id --strict $common ;;
+      lint)     compadd -- --format --id --strict $common ;;
       *)        compadd -- $common ;;
     esac
     return
   fi
 
   case $cmd in
-    show|edit|toc|backlinks)
+    show|edit|toc|append|backlinks)
       local -a ids; ids=(${(f)"$(_okf_lines ids $bundle)"})
       _wanted pages expl 'page' compadd -a ids
       [[ $cmd != backlinks ]] && _files -g '*.md'
@@ -166,7 +171,7 @@ _okf() {
   local IFS=$'\n'
 
   if (( COMP_CWORD == 1 )); then
-    COMPREPLY=($(compgen -W $'search\nshow\nedit\ntoc\nnew\nlist\nbacklinks\nvalidate\nlint\nindex\ngraph\ninit\nschema\ncompletion\nversion' -- "$cur"))
+    COMPREPLY=($(compgen -W $'search\nshow\nedit\ntoc\nappend\nnew\nlist\nbacklinks\nvalidate\nlint\nindex\ngraph\ninit\nschema\ncompletion\nversion' -- "$cur"))
     return
   fi
   if (( COMP_CWORD > 2 )) && [[ -d ${COMP_WORDS[2]} ]]; then
@@ -177,8 +182,10 @@ _okf() {
     --tag)  COMPREPLY=($(compgen -W "$(toji __complete tags $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
     --type) COMPREPLY=($(compgen -W "$(toji __complete types $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
     --template) COMPREPLY=($(compgen -W "$(toji __complete templates $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
-    --title|--description|--text) return ;;
+    --title|--description|--text|--body|--section) return ;;
     --format) COMPREPLY=($(compgen -W $'json\nsarif' -- "$cur")); return ;;
+    --id) COMPREPLY=($(compgen -W "$(toji __complete ids $bundle 2>/dev/null)" -- "$cur")); compopt -o filenames; return ;;
+    --dir) COMPREPLY=($(compgen -d -- "$cur")); compopt -o filenames; return ;;
   esac
 
   if [[ $cur == -* ]]; then
@@ -189,15 +196,17 @@ _okf() {
       list|graph) flags=$'--limit' ;;
       new)      flags=$'--title\n--type\n--tag\n--description\n--status\n--body\n--template\n--no-edit' ;;
       toc)      flags=$'--depth\n--remove\n--dry-run' ;;
-      validate) flags=$'--format\n--exit-zero' ;;
-      lint)     flags=$'--format' ;;
+      append)   flags=$'--body\n--section\n--dry-run' ;;
+      index)    flags=$'--dir\n--diff\n--dry-run\n--fill-descriptions' ;;
+      validate) flags=$'--format\n--exit-zero\n--errors-only\n--id\n--strict' ;;
+      lint)     flags=$'--format\n--id\n--strict' ;;
     esac
     COMPREPLY=($(compgen -W "$flags"$'\n--json\n--human' -- "$cur"))
     return
   fi
 
   case $cmd in
-    show|edit|toc|backlinks)
+    show|edit|toc|append|backlinks)
       COMPREPLY=($(compgen -W "$(toji __complete ids $bundle 2>/dev/null)" -- "$cur"))
       [[ $cmd != backlinks ]] && COMPREPLY+=($(compgen -f -X '!*.md' -- "$cur"))
       compopt -o filenames
