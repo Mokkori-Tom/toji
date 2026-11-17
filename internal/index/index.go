@@ -131,11 +131,11 @@ const (
 	roleFile
 )
 
-// names are the headings of the three list sections. Taken from the indexes
+// names are the heading lines ("## Folders") of the three list sections. Taken from the indexes
 // the bundle already has, so a bundle that says "## フォルダ" keeps saying it.
 type names map[role]string
 
-var defaultNames = names{roleFolder: "Folders", roleDoc: "Documents", roleFile: "Files"}
+var defaultNames = names{roleFolder: "## Folders", roleDoc: "## Documents", roleFile: "## Files"}
 
 // detectNames reads every index.md and, for each role, takes the heading most
 // often used over a section whose entries all have that role.
@@ -361,7 +361,14 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 					continue
 				}
 				d := desc(f, introParagraph(readHead(filepath.Join(dir, f, "index.md"))))
-				out = append(out, link(f, entry{text: f + "/", target: "./" + escape(f) + "/", desc: d}))
+				e := link(f, entry{text: f + "/", target: "./" + escape(f) + "/", desc: d})
+				// A folder link points at its index.md, not the folder: a
+				// directory is no page to open. Without --dir every listed
+				// folder gets an index.md in the same run.
+				if strings.HasSuffix(e.target, "/") && (len(g.opt.Dirs) == 0 || fileExists(filepath.Join(dir, f, "index.md"))) {
+					e.target += "index.md"
+				}
+				out = append(out, e)
 			}
 		case roleDoc:
 			for _, p := range keepOrder(l.pages, oldOrder[r]) {
@@ -412,7 +419,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	}
 	for _, r := range []role{roleFolder, roleDoc, roleFile} {
 		if !done[r] {
-			writeSection("## "+g.names[r], build(r))
+			writeSection(g.names[r], build(r))
 		}
 	}
 	return sb.String(), ir
@@ -694,6 +701,11 @@ func isListedFolder(dir string) bool {
 		return nil
 	})
 	return found
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // keepOrder returns names in the order the index listed them, so an order

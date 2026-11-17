@@ -116,7 +116,7 @@ func TestGenerate_KeepsHandwrittenParts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	wantRoot := "---\nokf_version: \"0.2\"\n---\n# ドキュメント一覧\n\n## 案内\n\n- [このバンドルについて](./README.md) - 分け方\n- [更新履歴](./log.md) - 記録\n\n## フォルダ\n\n- [hw/](./hw/) - 機器のメモ\n"
+	wantRoot := "---\nokf_version: \"0.2\"\n---\n# ドキュメント一覧\n\n## 案内\n\n- [このバンドルについて](./README.md) - 分け方\n- [更新履歴](./log.md) - 記録\n\n## フォルダ\n\n- [hw/](./hw/index.md) - 機器のメモ\n"
 	if got := read(t, dir, "index.md"); got != wantRoot {
 		t.Errorf("root:\n%s\nwant:\n%s", got, wantRoot)
 	}
@@ -210,7 +210,7 @@ func TestGenerate_MarkupIsNotAFolderDescription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if got := read(t, dir, "index.md"); !strings.Contains(got, "- [gtd/](gtd/) - GTDとOKFを融合させる\n") {
+	if got := read(t, dir, "index.md"); !strings.Contains(got, "- [gtd/](gtd/index.md) - GTDとOKFを融合させる\n") {
 		t.Errorf("parent summary lost or link rewritten:\n%s", got)
 	}
 	for _, ir := range res.Indexes {
@@ -322,3 +322,27 @@ func writeFiles2(t *testing.T, dir string, files map[string]string) {
 }
 
 func errorsAs(err error, target any) bool { return errors.As(err, target) }
+
+// A heading learned from the bundle's other indexes is written once, not as
+// "## ## フォルダ".
+func TestLearnedHeadingNotDoubled(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"index.md":   "# Index\n\n## フォルダ\n\n- [a/](./a/index.md)\n",
+		"a/index.md": "# a\n\n## フォルダ\n\n- [b/](./b/index.md)\n",
+		"a/b/p.md":   "---\ntype: note\n---\n# p\n",
+		"c/q.md":     "---\ntype: note\n---\n# q\n",
+	})
+	if _, err := Generate(dir, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	got := read(t, dir, "index.md")
+	if strings.Contains(got, "## ## ") {
+		t.Errorf("doubled heading:\n%s", got)
+	}
+	if !strings.Contains(got, "- [c/](./c/index.md)") {
+		t.Errorf("folder link does not point at index.md:\n%s", got)
+	}
+	if got := read(t, dir, "a/b/index.md"); !strings.Contains(got, "\n## 文書\n") && !strings.Contains(got, "\n## Documents\n") {
+		t.Errorf("a/b/index.md:\n%s", got)
+	}
+}
