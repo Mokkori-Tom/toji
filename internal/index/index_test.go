@@ -116,7 +116,7 @@ func TestGenerate_KeepsHandwrittenParts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	wantRoot := "---\nokf_version: \"0.2\"\n---\n# ドキュメント一覧\n\n## 案内\n\n- [このバンドルについて](./README.md) - 分け方\n- [更新履歴](./log.md) - 記録\n\n## フォルダ\n\n- [hw/](./hw/index.md) - 機器のメモ\n"
+	wantRoot := "---\nokf_version: \"0.2\"\n---\n\n# ドキュメント一覧\n\n## 案内\n\n- [このバンドルについて](./README.md) - 分け方\n- [更新履歴](./log.md) - 記録\n\n## フォルダ\n\n- [hw/](./hw/index.md) - 機器のメモ\n"
 	if got := read(t, dir, "index.md"); got != wantRoot {
 		t.Errorf("root:\n%s\nwant:\n%s", got, wantRoot)
 	}
@@ -180,17 +180,36 @@ func TestGenerate_DryRunAndFill(t *testing.T) {
 }
 
 func TestEntryParse(t *testing.T) {
-	cases := map[string]entry{
-		"- [a](./a.md) - one":            {text: "a", target: "./a.md", desc: "one"},
-		"- [a](./a.md): one":             {text: "a", target: "./a.md", desc: "one"},
-		"- [a](./a.md)":                  {text: "a", target: "./a.md"},
-		"- [x/](./x/) - フォルダ":            {text: "x/", target: "./x/", desc: "フォルダ"},
-		"- [b](./b%20c%28d%29.md) - two": {text: "b", target: "./b%20c%28d%29.md", desc: "two"},
+	type want struct{ marker, text, target, desc string }
+	cases := map[string]want{
+		"- [a](./a.md) - one":            {"-", "a", "./a.md", "one"},
+		"- [a](./a.md): one":             {"-", "a", "./a.md", "one"},
+		"- [a](./a.md)":                  {"-", "a", "./a.md", ""},
+		"- [x/](./x/) - フォルダ":            {"-", "x/", "./x/", "フォルダ"},
+		"- [b](./b%20c%28d%29.md) - two": {"-", "b", "./b%20c%28d%29.md", "two"},
+		"* [a](./a.md) - star":           {"*", "a", "./a.md", "star"},
+		"+ [a](./a.md) - plus":           {"+", "a", "./a.md", "plus"},
+		"1. [a](./a.md) - one":           {"1.", "a", "./a.md", "one"},
+		"12) [a](./a.md)":                {"12)", "a", "./a.md", ""},
+		"- [a b](<./a b.md>) - angle":    {"-", "a b", "./a b.md", "angle"},
+		"- [a](./a.md \"Title\") - t":    {"-", "a", "./a.md", "t"},
+		"- [a(b)](./a(b).md) - paren":    {"-", "a(b)", "./a(b).md", "paren"},
+		"- [see [x]](./x.md) - nested":   {"-", "see [x]", "./x.md", "nested"},
+		"*  [a](./a.md) - two spaces":    {"*", "a", "./a.md", "two spaces"},
 	}
-	for line, want := range cases {
+	for line, w := range cases {
 		got, ok := parseEntry(line)
-		if !ok || got != want {
-			t.Errorf("parseEntry(%q) = %+v, %v; want %+v", line, got, ok, want)
+		if !ok || (want{got.marker, got.text, got.target, got.desc}) != w {
+			t.Errorf("parseEntry(%q) = %+v, %v; want %+v", line, got, ok, w)
+			continue
+		}
+		if got.String() != line {
+			t.Errorf("String() = %q; want %q", got.String(), line)
+		}
+	}
+	for _, line := range []string{"  - [a](./a.md)", "-[a](./a.md)", "- text [a](./a.md)"} {
+		if _, ok := parseEntry(line); ok {
+			t.Errorf("parseEntry(%q) matched", line)
 		}
 	}
 	if e, _ := parseEntry("- [b](./b%20c%28d%29.md)"); e.name() != "b c(d).md" {
@@ -344,5 +363,84 @@ func TestLearnedHeadingNotDoubled(t *testing.T) {
 	}
 	if got := read(t, dir, "a/b/index.md"); !strings.Contains(got, "\n## 文書\n") && !strings.Contains(got, "\n## Documents\n") {
 		t.Errorf("a/b/index.md:\n%s", got)
+	}
+}
+
+// Lists written with "*" or numbers, or right under the title with no "##"
+// heading, are read and kept in their own form.
+func TestOtherListForms(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"index.md": "# Root\n\nWhat this is.\n\n" +
+			"* [notes.txt](./notes.txt) - a file\n" +
+			"* [a/](./a/index.md) - folder a\n" +
+			"* [bin/](./bin/README.md) - tools\n",
+		"notes.txt":     "x",
+		"a/index.md":    "# a\n\nIntro.\n\n1. [p](./p.md): first\n",
+		"a/p.md":        "---\ntype: note\n---\n# p\n",
+		"a/q.md":        "---\ntype: note\ndescription: second\n---\n# q\n",
+		"bin/README.md": "# bin\n",
+		"bin/tool":      "x",
+	})
+	if _, err := Generate(dir, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	// Mixed folders and files: kept as written, and the folders it links
+	// (bin through its README) are not listed again.
+	if got, want := read(t, dir, "index.md"), "# Root\n\nWhat this is.\n\n* [notes.txt](./notes.txt) - a file\n* [a/](./a/index.md) - folder a\n* [bin/](./bin/README.md) - tools\n"; got != want {
+		t.Errorf("index.md:\n%s\nwant:\n%s", got, want)
+	}
+	if got, want := read(t, dir, "a/index.md"), "# a\n\nIntro.\n\n1. [p](./p.md): first\n2. [q](./q.md) - second\n"; got != want {
+		t.Errorf("a/index.md:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestBlankAfterFrontmatterKept(t *testing.T) {
+	text := "---\nokf_version: \"0.2\"\n---\n\n# Root\n\n## Documents\n\n- [p](./p.md)\n"
+	dir := writeFiles(t, map[string]string{
+		"index.md": text,
+		"p.md":     "---\ntype: note\n---\n# p\n",
+	})
+	if _, err := Generate(dir, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, dir, "index.md"); got != text {
+		t.Errorf("index.md:\n%q\nwant:\n%q", got, text)
+	}
+}
+
+// A list under the title that mixes links with plain items is kept, and the
+// folders it links are not listed again below it.
+func TestMixedHeadListPinsFolders(t *testing.T) {
+	text := "# projects\n\n* [a/](a/index.md) - A\n*  [b](b/) - B\n* someday maybe\n"
+	dir := writeFiles(t, map[string]string{
+		"index.md":   text,
+		"a/index.md": "# a\n\nA.\n",
+		"b/index.md": "# b\n\nB.\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"."}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, dir, "index.md"); got != text {
+		t.Errorf("index.md:\n%s\nwant:\n%s", got, text)
+	}
+}
+
+// Blank lines Markdown leaves optional stay as written: none before a
+// heading right after a list, none under a heading, one between items.
+func TestListSpacingKept(t *testing.T) {
+	text := "# a\n\nIntro.\n\n- [b/](./b/index.md) - B\n## Documents\n- [p](./p.md) - P\n\n- [q](./q.md) - Q\n"
+	dir := writeFiles(t, map[string]string{
+		"index.md":   text,
+		"b/index.md": "# b\n\nB\n",
+		"p.md":       "---\ntype: note\ndescription: P\n---\n# p\n",
+		"q.md":       "---\ntype: note\ndescription: Q\n---\n# q\n",
+		"r.md":       "---\ntype: note\ndescription: R\n---\n# r\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"."}}); err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Replace(text, "Q\n", "Q\n\n- [r](./r.md) - R\n", 1)
+	if got := read(t, dir, "index.md"); got != want {
+		t.Errorf("index.md:\n%q\nwant:\n%q", got, want)
 	}
 }

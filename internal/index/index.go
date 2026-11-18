@@ -6,7 +6,9 @@
 // two apart. Hand-written: the heading, the paragraph under it (what the
 // folder is for), and any section that is not a plain list of links. Derived
 // and rebuilt on every run: the list of folders, the list of pages, and the
-// list of other files, each entry "- [name](./target) - summary". A page's
+// list of other files, each entry "- [name](./target) - summary". Any list
+// Markdown allows is read ("* ", "+ ", "1. "), and a list keeps the marker,
+// the separator and the link form it was written with. A page's
 // summary is its frontmatter description; a folder's is the paragraph at the
 // top of its own index.md; where neither exists the summary already in the
 // index is kept, so nothing written by hand is lost.
@@ -19,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -159,7 +162,7 @@ func detectNames(root string) names {
 			return nil
 		}
 		for _, s := range doc.sections {
-			if r := s.uniformRole(filepath.Dir(path)); r != roleOther {
+			if r := s.uniformRole(filepath.Dir(path)); r != roleOther && s.heading != "" {
 				if count[r] == nil {
 					count[r] = map[string]int{}
 				}
@@ -302,7 +305,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	}
 	if old != nil {
 		sb.WriteString(old.front)
-		if len(old.head) > 0 {
+		if len(old.head) > 0 || (len(old.sections) > 0 && old.sections[0].heading == "") {
 			head = old.head
 		}
 	}
@@ -320,7 +323,21 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	pinned := map[string]bool{}
 	done := map[role]bool{}
 	oldOrder := map[role][]string{}
+	pin := func(e entry) {
+		pinned[e.name()] = true
+		// "bin/README.md" stands for the folder bin.
+		if first, _, ok := strings.Cut(e.name(), "/"); ok && !strings.Contains(e.target, "://") {
+			pinned[first] = true
+		}
+	}
 	if old != nil {
+		// Links in the text under the title, a list mixing links and
+		// plain items included, are written by hand.
+		for _, line := range old.head {
+			if e, ok := parseEntry(line); ok {
+				pin(e)
+			}
+		}
 		for _, s := range old.sections {
 			r := s.uniformRole(dir)
 			for _, e := range s.entries {
@@ -329,7 +346,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 				}
 				oldEntry[e.name()] = e
 				if r == roleOther {
-					pinned[e.name()] = true
+					pin(e)
 				} else {
 					oldOrder[r] = append(oldOrder[r], e.name())
 				}
@@ -348,7 +365,10 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	// the folder's contents changed.
 	link := func(name string, fresh entry) entry {
 		if o, ok := oldEntry[name]; ok {
-			fresh.text, fresh.target = o.text, o.target
+			fresh.pad, fresh.text, fresh.target, fresh.angle, fresh.title = o.pad, o.text, o.target, o.angle, o.title
+			if o.sep != "" {
+				fresh.sep = o.sep
+			}
 		}
 		return fresh
 	}
@@ -388,12 +408,45 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 		}
 		return out
 	}
-	writeSection := func(heading string, es []entry) {
+	// A section is written as its list already was: the marker ("-", "*",
+	// "+", or numbers counted on from the first), and the blank lines
+	// around the heading and between items, all of which Markdown allows.
+	writeSection := func(heading string, es []entry, like *section) {
 		if len(es) == 0 {
 			return
 		}
-		sb.WriteString("\n" + heading + "\n\n")
-		for _, e := range es {
+		if like == nil {
+			like = &section{}
+		}
+		if !like.tightBefore {
+			sb.WriteString("\n")
+		}
+		if heading != "" {
+			sb.WriteString(heading + "\n")
+			if !like.tightHeading {
+				sb.WriteString("\n")
+			}
+		}
+		mark := func(int) string { return "-" }
+		pad := ""
+		if len(like.entries) > 0 {
+			m := like.entries[0].marker
+			pad = like.entries[0].pad
+			if n, err := strconv.Atoi(m[:len(m)-1]); err == nil {
+				delim := m[len(m)-1:]
+				mark = func(i int) string { return strconv.Itoa(n+i) + delim }
+			} else {
+				mark = func(int) string { return m }
+			}
+		}
+		for i, e := range es {
+			if i > 0 && like.loose {
+				sb.WriteString("\n")
+			}
+			e.marker = mark(i)
+			if e.pad == "" {
+				e.pad = pad
+			}
 			sb.WriteString(e.String() + "\n")
 		}
 		ir.Entries += len(es)
@@ -404,22 +457,31 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 		for _, s := range old.sections {
 			r := s.uniformRole(dir)
 			if r == roleOther || done[r] {
-				sb.WriteString("\n" + s.heading + "\n")
-				if lines := trimBlank(s.lines); len(lines) > 0 {
+				lines := trimBlank(s.lines)
+				if s.heading == "" && len(lines) == 0 {
+					continue
+				}
+				if !s.tightBefore {
 					sb.WriteString("\n")
-					for _, line := range lines {
-						sb.WriteString(line + "\n")
+				}
+				if s.heading != "" {
+					sb.WriteString(s.heading + "\n")
+					if len(lines) > 0 && !s.tightHeading {
+						sb.WriteString("\n")
 					}
+				}
+				for _, line := range lines {
+					sb.WriteString(line + "\n")
 				}
 				continue
 			}
 			done[r] = true
-			writeSection(s.heading, build(r))
+			writeSection(s.heading, build(r), s)
 		}
 	}
 	for _, r := range []role{roleFolder, roleDoc, roleFile} {
 		if !done[r] {
-			writeSection(g.names[r], build(r))
+			writeSection(g.names[r], build(r), nil)
 		}
 	}
 	return sb.String(), ir
@@ -434,10 +496,14 @@ type indexDoc struct {
 }
 
 type section struct {
-	heading string   // the "## ..." line
+	heading string   // the "## ..." line; "" for a list right under the title
 	lines   []string // every line under it, as written
 	entries []entry  // the link entries among them
 	plain   bool     // every non-blank line is an entry
+
+	tightBefore  bool // no blank line between the text above and this section
+	tightHeading bool // no blank line between the heading and the list
+	loose        bool // blank lines between the items
 }
 
 // uniformRole is the role of a section whose entries all point at the same
@@ -459,25 +525,60 @@ func (s *section) uniformRole(dir string) role {
 }
 
 type entry struct {
+	marker string // "-", "*", "+", "1." or "1)"
+	pad    string // the spaces after the marker, " " if new
 	text   string
 	target string
+	angle  bool   // the target was written as <target>
+	title  string // a link title as written, quotes included
+	sep    string // what stands between the link and the summary, " - " if new
 	desc   string
 }
 
-var entryRE = regexp.MustCompile(`^- \[([^\]]*)\]\(([^)\s]+)\)(?:\s*[-–—:：]\s*(.*))?$`)
+// entryRE matches a list item that is one link and an optional summary, in
+// any form CommonMark allows for a top-level item: "-", "*", "+" or an
+// ordered "1." / "1)" marker, brackets nested once in the text, a target in
+// <angle brackets> or with balanced parentheses, and a link title.
+var entryRE = regexp.MustCompile(`^([-*+]|\d{1,9}[.)])([ \t]+)\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(\s*(?:<([^<>\n]*)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+("[^"]*"|'[^']*'|\([^()]*\)))?\s*\)(?:(\s*[-–—:：]\s*)(.*))?$`)
 
 func parseEntry(line string) (entry, bool) {
-	m := entryRE.FindStringSubmatch(line)
+	m := entryRE.FindStringSubmatch(strings.TrimRight(line, " \t"))
 	if m == nil {
 		return entry{}, false
 	}
-	return entry{text: m[1], target: m[2], desc: strings.TrimSpace(m[3])}, true
+	e := entry{marker: m[1], pad: m[2], text: m[3], target: m[5], title: m[6], desc: strings.TrimSpace(m[8])}
+	if m[4] != "" || m[5] == "" {
+		e.target, e.angle = m[4], true
+	}
+	if e.desc != "" {
+		e.sep = m[7]
+	}
+	return e, true
 }
 
 func (e entry) String() string {
-	s := "- [" + e.text + "](" + e.target + ")"
+	marker := e.marker
+	if marker == "" {
+		marker = "-"
+	}
+	target := e.target
+	if e.angle {
+		target = "<" + target + ">"
+	}
+	if e.title != "" {
+		target += " " + e.title
+	}
+	pad := e.pad
+	if pad == "" {
+		pad = " "
+	}
+	s := marker + pad + "[" + e.text + "](" + target + ")"
 	if e.desc != "" {
-		s += " - " + e.desc
+		sep := e.sep
+		if sep == "" {
+			sep = " - "
+		}
+		s += sep + e.desc
 	}
 	return s
 }
@@ -536,16 +637,32 @@ func parseIndex(path string) (*indexDoc, error) {
 
 func parseIndexText(text string) *indexDoc {
 	text = strings.TrimPrefix(text, "\uFEFF")
+	orig := text
 	doc := &indexDoc{}
 	if front, body, ok := concept.SplitFrontmatter(text); ok {
 		doc.front = "---\n" + front + "\n---\n"
 		text = body
+		// Blank lines between the frontmatter and the title stay as written
+		// (SplitFrontmatter drops one).
+		if block := doc.front; strings.HasPrefix(orig, block) {
+			rest := orig[len(block):]
+			for strings.HasPrefix(rest, "\n") {
+				doc.front += "\n"
+				rest = rest[1:]
+			}
+			text = rest
+		}
 	}
 	var cur *section
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
 		line = strings.TrimRight(line, "\r")
 		if strings.HasPrefix(line, "## ") {
+			above := doc.head
+			if cur != nil {
+				above = cur.lines
+			}
 			cur = &section{heading: line, plain: true}
+			cur.tightBefore = len(above) > 0 && strings.TrimSpace(above[len(above)-1]) != ""
 			doc.sections = append(doc.sections, cur)
 			continue
 		}
@@ -558,6 +675,37 @@ func parseIndexText(text string) *indexDoc {
 			cur.entries = append(cur.entries, e)
 		} else if strings.TrimSpace(line) != "" {
 			cur.plain = false
+		}
+	}
+	// A list of links that ends the head, before any "## " heading, is a
+	// section without a heading: "# Title", a paragraph, then the list.
+	k := len(doc.head)
+	for i := len(doc.head) - 1; i >= 0; i-- {
+		if strings.TrimSpace(doc.head[i]) == "" {
+			continue
+		}
+		if _, ok := parseEntry(doc.head[i]); !ok {
+			break
+		}
+		k = i
+	}
+	if k < len(doc.head) {
+		s := &section{lines: doc.head[k:], plain: true}
+		s.tightBefore = k > 0 && strings.TrimSpace(doc.head[k-1]) != ""
+		for _, line := range s.lines {
+			if e, ok := parseEntry(line); ok {
+				s.entries = append(s.entries, e)
+			}
+		}
+		doc.head = doc.head[:k]
+		doc.sections = append([]*section{s}, doc.sections...)
+	}
+	for _, s := range doc.sections {
+		s.tightHeading = s.heading != "" && len(s.lines) > 0 && strings.TrimSpace(s.lines[0]) != ""
+		for _, line := range trimBlank(s.lines) {
+			if strings.TrimSpace(line) == "" {
+				s.loose = true
+			}
 		}
 	}
 	return doc
