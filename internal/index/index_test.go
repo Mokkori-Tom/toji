@@ -466,3 +466,37 @@ func TestFolderSummaryWithRelativeLinkNotCopied(t *testing.T) {
 		t.Errorf("index.md:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// The example in OKF §8: "#" headings for sections, "*" items, and a
+// folder linked as "subdir/".
+func TestSpecExampleSections(t *testing.T) {
+	text := "# Pages\n* [p](p.md) - P\n\n# Folders\n* [sub/](sub/) - Sub\n"
+	dir := writeFiles(t, map[string]string{
+		"index.md":     text,
+		"p.md":         "---\ntype: note\ndescription: P\n---\n# p\n",
+		"q.md":         "---\ntype: note\ndescription: Q\n---\n# q\n",
+		"sub/index.md": "# sub\n\nSub\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"."}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "# Pages\n* [p](p.md) - P\n* [q](./q.md) - Q\n\n# Folders\n* [sub/](sub/index.md) - Sub\n"
+	if got := read(t, dir, "index.md"); got != want {
+		t.Errorf("index.md:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A "#" line in a fenced code block is not a heading.
+func TestHeadingInCodeFence(t *testing.T) {
+	text := "# Root\n\n## Notes\n\n```sh\n# a comment\n```\n\n## Documents\n\n- [p](./p.md) - P\n"
+	dir := writeFiles(t, map[string]string{
+		"index.md": text,
+		"p.md":     "---\ntype: note\ndescription: P\n---\n# p\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"."}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, dir, "index.md"); got != text {
+		t.Errorf("index.md:\n%s\nwant:\n%s", got, text)
+	}
+}

@@ -653,10 +653,22 @@ func parseIndexText(text string) *indexDoc {
 			text = rest
 		}
 	}
+	// The first heading is the title; every heading after it, of any
+	// level, starts a section (OKF §8 writes "# Another section"). A "#"
+	// line inside a fenced code block is not a heading.
 	var cur *section
+	titled, fence := false, ""
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
 		line = strings.TrimRight(line, "\r")
-		if strings.HasPrefix(line, "## ") {
+		if f := fenceRE.FindString(line); f != "" {
+			f = strings.TrimLeft(f, " ")
+			switch {
+			case fence == "":
+				fence = f[:3]
+			case strings.HasPrefix(f, fence):
+				fence = ""
+			}
+		} else if fence == "" && headingRE.MatchString(line) && (titled || cur != nil) {
 			above := doc.head
 			if cur != nil {
 				above = cur.lines
@@ -667,6 +679,9 @@ func parseIndexText(text string) *indexDoc {
 			continue
 		}
 		if cur == nil {
+			if fence == "" && headingRE.MatchString(line) {
+				titled = true
+			}
 			doc.head = append(doc.head, line)
 			continue
 		}
@@ -677,7 +692,7 @@ func parseIndexText(text string) *indexDoc {
 			cur.plain = false
 		}
 	}
-	// A list of links that ends the head, before any "## " heading, is a
+	// A list of links that ends the head, before any section heading, is a
 	// section without a heading: "# Title", a paragraph, then the list.
 	k := len(doc.head)
 	for i := len(doc.head) - 1; i >= 0; i-- {
@@ -710,6 +725,11 @@ func parseIndexText(text string) *indexDoc {
 	}
 	return doc
 }
+
+var (
+	headingRE = regexp.MustCompile(`^ {0,3}#{1,6}(?:[ \t]|$)`)
+	fenceRE   = regexp.MustCompile("^ {0,3}(?:```|~~~)")
+)
 
 // readHead returns the lines above the first section of the index at path.
 func readHead(path string) []string {
