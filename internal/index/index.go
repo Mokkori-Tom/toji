@@ -380,7 +380,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 				if pinned[f] {
 					continue
 				}
-				d := desc(f, introParagraph(readHead(filepath.Join(dir, f, "index.md"))))
+				d := desc(f, folderSummary(filepath.Join(dir, f, "index.md")))
 				e := link(f, entry{text: f + "/", target: "./" + escape(f) + "/", desc: d})
 				// A folder link points at its index.md, not the folder: a
 				// directory is no page to open. Without --dir every listed
@@ -719,6 +719,28 @@ func readHead(path string) []string {
 	}
 	return doc.head
 }
+
+// folderSummary is the description paragraph of the folder index at path,
+// for the parent's index. A paragraph with a relative link or a wikilink is
+// not used: the link is relative to the folder and would break one level up,
+// and such a line is usually a stray entry, not a description.
+func folderSummary(path string) string {
+	p := introParagraph(readHead(path))
+	if strings.Contains(p, "[[") {
+		return ""
+	}
+	for _, m := range mdLinkRE.FindAllStringSubmatch(p, -1) {
+		if !schemeRE.MatchString(m[1]) {
+			return ""
+		}
+	}
+	return p
+}
+
+var (
+	mdLinkRE = regexp.MustCompile(`\]\(\s*<?([^)>\s]*)`)
+	schemeRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
+)
 
 // introParagraph is the first paragraph under the heading: the folder's
 // description, as one line. List items, and lines with nothing but markup

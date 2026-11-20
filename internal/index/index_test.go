@@ -444,3 +444,25 @@ func TestListSpacingKept(t *testing.T) {
 		t.Errorf("index.md:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+// A folder index whose first paragraph links into the folder gives the
+// parent no summary from it: the summary already there stays.
+func TestFolderSummaryWithRelativeLinkNotCopied(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"index.md":   "# Root\n\n## Folders\n\n- [a/](./a/index.md) - kept\n- [b/](./b/index.md) - old\n- [c/](./c/index.md) - old\n",
+		"a/index.md": "[file](file.pdf) - not sent\n",
+		"a/file.pdf": "x",
+		"a/p.md":     "---\ntype: note\n---\n# p\n",
+		"b/index.md": "# b\n\nSee [the site](https://example.com) for more.\n",
+		"b/p.md":     "---\ntype: note\n---\n# p\n",
+		"c/index.md": "# c\n\nNotes on [[x]].\n",
+		"c/p.md":     "---\ntype: note\n---\n# p\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"."}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "# Root\n\n## Folders\n\n- [a/](./a/index.md) - kept\n- [b/](./b/index.md) - See [the site](https://example.com) for more.\n- [c/](./c/index.md) - old\n"
+	if got := read(t, dir, "index.md"); got != want {
+		t.Errorf("index.md:\n%s\nwant:\n%s", got, want)
+	}
+}
