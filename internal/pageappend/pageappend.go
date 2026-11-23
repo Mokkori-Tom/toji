@@ -97,11 +97,20 @@ func Append(text, body, section string) (out string, line int, err error) {
 	return out, line, nil
 }
 
-// sectionEnd finds the heading named section and returns the index of the
-// line that ends its section: the next heading of the same or a higher
-// level, or the end of the page. Headings inside code fences and in the
-// frontmatter do not count.
+// sectionEnd returns the index of the line that ends the section under the
+// heading named section (see SectionBounds).
 func sectionEnd(lines []string, section string) (int, error) {
+	_, end, err := SectionBounds(lines, section)
+	return end, err
+}
+
+// SectionBounds finds the heading named section in lines and returns the
+// index of the heading line and of the line that ends its section: the next
+// heading of the same or a higher level, or len(lines). The heading is
+// matched by its text, ignoring leading #s, case and runs of spaces.
+// Headings inside code fences and in the frontmatter do not count; a missing
+// heading is a *NotFoundError and a repeated one an *AmbiguousError.
+func SectionBounds(lines []string, section string) (start, end int, err error) {
 	want := normalize(strings.TrimLeft(strings.TrimSpace(section), "#"))
 	type heading struct {
 		idx, level int
@@ -109,16 +118,16 @@ func sectionEnd(lines []string, section string) (int, error) {
 	}
 	var hs []heading
 	inFence := false
-	start := 0
+	from := 0 // first line after the frontmatter
 	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
 		for i := 1; i < len(lines); i++ {
 			if t := strings.TrimSpace(lines[i]); t == "---" || t == "..." {
-				start = i + 1
+				from = i + 1
 				break
 			}
 		}
 	}
-	for i := start; i < len(lines); i++ {
+	for i := from; i < len(lines); i++ {
 		if fenceRE.MatchString(lines[i]) {
 			inFence = !inFence
 			continue
@@ -145,16 +154,16 @@ func sectionEnd(lines []string, section string) (int, error) {
 		for _, h := range hs {
 			names = append(names, h.text)
 		}
-		return 0, &NotFoundError{Section: section, Headings: names}
+		return 0, 0, &NotFoundError{Section: section, Headings: names}
 	case len(lineNos) > 1:
-		return 0, &AmbiguousError{Section: section, Lines: lineNos}
+		return 0, 0, &AmbiguousError{Section: section, Lines: lineNos}
 	}
 	for _, h := range hs[found+1:] {
 		if h.level <= hs[found].level {
-			return h.idx, nil
+			return hs[found].idx, h.idx, nil
 		}
 	}
-	return len(lines), nil
+	return hs[found].idx, len(lines), nil
 }
 
 // normalize compares headings by their words: case and runs of spaces

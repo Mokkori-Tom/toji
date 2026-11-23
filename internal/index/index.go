@@ -28,6 +28,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/textdiff"
 )
 
 // Options controls Generate.
@@ -259,7 +260,7 @@ func (g *generator) dir(dir string, res *Result) error {
 		ir.Status = "updated"
 	}
 	if g.opt.Diff && ir.Status != "unchanged" {
-		ir.Diff = unifiedDiff(oldText, text, filepath.ToSlash(filepath.Join(rel, "index.md")))
+		ir.Diff = textdiff.UnifiedDiff(oldText, text, filepath.ToSlash(filepath.Join(rel, "index.md")))
 	}
 	if ir.Status != "unchanged" && !g.opt.DryRun {
 		if err := os.WriteFile(indexPath, []byte(text), 0644); err != nil { //nolint:gosec // the bundle's own index.md

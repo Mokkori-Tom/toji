@@ -1,4 +1,6 @@
-package index
+// Package textdiff renders a unified diff of two texts, for commands that show
+// a change before (or instead of) writing it: index --diff, replace --diff.
+package textdiff
 
 import (
 	"fmt"
@@ -8,9 +10,10 @@ import (
 // diffContext is the number of unchanged lines shown around each change.
 const diffContext = 3
 
-// unifiedDiff returns a unified diff from a to b, labelled with name, or ""
-// when they are equal. Index files are short, so a plain LCS table is enough.
-func unifiedDiff(a, b, name string) string {
+// UnifiedDiff returns a unified diff from a to b, labelled with name, or ""
+// when they are equal. Pages and index files are short, so a plain LCS table
+// is enough.
+func UnifiedDiff(a, b, name string) string {
 	if a == b {
 		return ""
 	}
