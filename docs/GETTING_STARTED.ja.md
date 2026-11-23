@@ -74,6 +74,9 @@ toji edit gpu-fan                       # エディタで開く(show の画面�
 toji toc gpu-fan                       # ページの見出しの目次を <!-- toc --> の間に書く(2回目からは作り直し)
 toji append gpu-fan --section 関連 --body "- [電源](./電源.md)"
                                        # 既存のページに追記する(--section が無ければ末尾)。他は変えない
+toji replace gpu-fan --old "- 古い行" --new "- 新しい行" --dry-run --diff
+                                       # ページの一部を直す。--old はちょうど 1 回だけあること。
+                                       # --delete で消す。--dry-run --diff で差分だけ見る
 toji new 2026-10-27 --template daily    # テンプレートから作る(下の「テンプレート」を参照)
 toji list                               # 一覧
 toji index --dry-run                   # 各フォルダの index.md をどう直すか見る(書き込まない)

@@ -83,6 +83,8 @@ func main() {
 		runToc(rest)
 	case "append":
 		runAppend(rest)
+	case "replace":
+		runReplace(rest)
 	case "edit":
 		runEdit(rest)
 	case "completion":
@@ -121,6 +123,9 @@ Commands:
   toc [bundle] <concept-id>   Write a table of contents into a page (--depth, --remove)
   append [bundle] <concept-id> --body <text>|-
                               Add markdown to the end of a page or of a --section
+  replace [bundle] <concept-id> --old <text>|- --new <text>|- (or --delete)
+                              Change one exact piece of a page (--section, --all,
+                              --dry-run, --diff)
   completion zsh|bash         Print a shell completion script (page IDs, tags, types)
   backlinks <bundle> <id>    List concepts that link to a given concept
   graph <bundle>             Print cross-link graph statistics
@@ -1107,6 +1112,26 @@ func allSchemaCommands() []schemaCommand {
 				{Name: "body", Type: "string", Default: "", Description: "markdown to add (required); - reads it from stdin"},
 				{Name: "section", Type: "string", Default: "", Description: "heading text of the section to add to; without it the block goes at the end of the page"},
 				{Name: "dry-run", Type: "bool", Default: "false", Description: "report where the block would go; write nothing"},
+			},
+			Args: []schemaArg{
+				{Name: "bundle", Required: false},
+				{Name: "concept-id", Required: true},
+			},
+			Stdout:    "json",
+			ExitCodes: []int{cerr.ExitCodeOK, cerr.ExitCodeValidation, cerr.ExitCodeIO, cerr.ExitCodeUsage},
+		},
+		{
+			Name:  "replace",
+			Short: "Change one exact piece of a page",
+			Long:  "Replaces the --old text of an existing page with the --new text, or with --delete removes it. The old text is matched exactly (CRLF line endings count as LF) and must occur exactly once in the page, or with --section once in the section under that heading (the heading line and its body up to the next heading of the same or a higher level; matched like toji append). No occurrence is an error that says whether the text occurs outside the section or differs only in spaces or line breaks; several occurrences are an error that lists their lines, unless --all replaces every one. Deleting whole lines removes their line breaks too, so no blank line is left. A page whose frontmatter parsed before the change must still parse after it; otherwise nothing is written. One of --old and --new may be - to read stdin (a trailing line break is dropped). This is how an agent fixes or removes a line of a page it did not create, where toji append can only add and toji edit needs a terminal. Accepts a concept ID or a path to an .md file. --dry-run reports without writing; --diff adds a unified diff of the change. JSON output: id, path, section, count, lines (1-based lines where the occurrences started), deleted, dry_run, and diff with --diff.",
+			Flags: []schemaFlag{
+				{Name: "old", Type: "string", Default: "", Description: "exact text to find (required); - reads it from stdin"},
+				{Name: "new", Type: "string", Default: "", Description: "text to put in its place (required unless --delete); - reads it from stdin"},
+				{Name: "delete", Type: "bool", Default: "false", Description: "remove the old text instead of replacing it"},
+				{Name: "section", Type: "string", Default: "", Description: "heading text of the section to search in; without it the whole page is searched"},
+				{Name: "all", Type: "bool", Default: "false", Description: "replace every occurrence instead of requiring exactly one"},
+				{Name: "dry-run", Type: "bool", Default: "false", Description: "report what would change; write nothing"},
+				{Name: "diff", Type: "bool", Default: "false", Description: "include a unified diff of the change"},
 			},
 			Args: []schemaArg{
 				{Name: "bundle", Required: false},

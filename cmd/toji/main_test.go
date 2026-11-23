@@ -386,7 +386,7 @@ func TestE2E_StaleAfterDatetimeIsValid(t *testing.T) {
 
 func TestE2E_ValidateFilters(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "good/a.md"), "---\ntype: Note\n---\n\nbody")            // warnings only
+	writeFile(t, filepath.Join(dir, "good/a.md"), "---\ntype: Note\n---\n\nbody")               // warnings only
 	writeFile(t, filepath.Join(dir, "bad/b.md"), "---\ntype: Note\ntitle: [unclosed\n---\n\nx") // an error
 
 	var r struct {
@@ -465,6 +465,65 @@ func TestE2E_Append(t *testing.T) {
 	}
 	if raw, _ := os.ReadFile(page); string(raw) != want {
 		t.Error("--dry-run wrote the page")
+	}
+}
+
+// --- replace changes one exact piece; --delete removes it ---
+
+func TestE2E_Replace(t *testing.T) {
+	dir := t.TempDir()
+	page := filepath.Join(dir, "notes/a.md")
+	orig := "---\ntype: Note\ndescription: 古い説明\n---\n\n# A\n\n## 関連\n\n- 古い行\n\n## 記録\n\n- 古い行\n- 消す行\n- 残す行\n"
+	writeFile(t, page, orig)
+
+	cmd := exec.Command(okfBin, "replace", dir, "notes/a", "--old", "古い説明", "--new", "-", "--diff") //nolint:gosec // test binary
+	cmd.Stdin = strings.NewReader("新しい説明\n")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("replace: %v %s", err, out)
+	}
+	var r struct {
+		Count int    `json:"count"`
+		Lines []int  `json:"lines"`
+		Diff  string `json:"diff"`
+	}
+	if err := json.Unmarshal(out, &r); err != nil || r.Count != 1 || r.Lines[0] != 3 || !strings.Contains(r.Diff, "+description: 新しい説明") {
+		t.Errorf("replace output %s (%v)", out, err)
+	}
+
+	out2, code := runOKF(t, "replace", dir, "notes/a", "--old", "- 古い行", "--new", "x")
+	if code != cerr.ExitCodeValidation || !strings.Contains(out2, "[10 14]") {
+		t.Errorf("ambiguous: exit %d, %s", code, out2)
+	}
+	if out, code := runOKF(t, "replace", dir, "notes/a", "--old", "- 古い行", "--new", "- 新しい行", "--section", "記録"); code != 0 {
+		t.Errorf("--section: exit %d %s", code, out)
+	}
+	if out, code := runOKF(t, "replace", dir, "notes/a", "--old", "- 消す行", "--delete"); code != 0 {
+		t.Errorf("--delete: exit %d %s", code, out)
+	}
+	want := "---\ntype: Note\ndescription: 新しい説明\n---\n\n# A\n\n## 関連\n\n- 古い行\n\n## 記録\n\n- 新しい行\n- 残す行\n"
+	if raw, _ := os.ReadFile(page); string(raw) != want {
+		t.Errorf("page:\n%s\nwant:\n%s", raw, want)
+	}
+
+	// A change that breaks the frontmatter is refused.
+	if out, code := runOKF(t, "replace", dir, "notes/a", "--old", "type: Note", "--new", "type: [Note"); code != cerr.ExitCodeValidation || !strings.Contains(out, "frontmatter") {
+		t.Errorf("broken frontmatter: exit %d %s", code, out)
+	}
+	if _, code := runOKF(t, "replace", dir, "notes/a", "--old", "- 残す行", "--delete", "--dry-run"); code != 0 {
+		t.Errorf("--dry-run: exit %d", code)
+	}
+	if raw, _ := os.ReadFile(page); string(raw) != want {
+		t.Error("a refused change or --dry-run wrote the page")
+	}
+	for _, args := range [][]string{
+		{"replace", dir, "notes/a", "--old", "x"},
+		{"replace", dir, "notes/a", "--old", "x", "--new", "y", "--delete"},
+		{"replace", dir, "notes/a", "--old", "-", "--new", "-"},
+	} {
+		if _, code := runOKF(t, args...); code != cerr.ExitCodeUsage {
+			t.Errorf("%v: exit %d, want usage", args[3:], code)
+		}
 	}
 }
 
