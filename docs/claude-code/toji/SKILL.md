@@ -21,8 +21,8 @@ description: >
 toji search --meta 電力 上限     # まずこれ。タイトル・description・タグ・index.md の一覧行だけを見る
 toji search 電力 上限            # 本文まで全文検索。--meta で見つからないとき。語は AND。かな/カナ・全角半角の揺れを吸収
 toji search --tag gpu --type Note
-toji show notes/gpu              # 本文と frontmatter
-toji backlinks notes/gpu         # このページを参照しているページ
+toji show ローカルLLM/gpu         # 本文と frontmatter
+toji backlinks ローカルLLM/gpu    # このページを参照しているページ
 ```
 
 - 最初は `--meta` で探す。結果は 1 件ずつ `description`（一行要約）付きで短く、本文の言及だけの的外れなページが混ざらない。
@@ -34,11 +34,12 @@ toji backlinks notes/gpu         # このページを参照しているページ
 ## 書く
 
 ```sh
-toji new notes/<id> --type Note --title "..." --description "一行要約" --tag a,b --index --body - <<'MD'
+toji new ローカルLLM/<ページ名> --type Note --title "..." --description "一行要約" --tag a,b --index --body - <<'MD'
 本文（Markdown）
 MD
 ```
 
+- ID は「バンドルの中のフォルダ/ページ名」（例 `ローカルLLM/llama-server設定`）。バンドルの場所（`$TOJI_BUNDLE` のパス）は含めない。
 - 1 回の呼び出しで完成したページを作る。エディタは開かない。
 - `--index` を必ず付ける。そのページのフォルダの index.md だけが更新され、新しいページが一覧に載る。付け忘れたときは、
   出力の `index.stale` が true で、`index.update` に打つべきコマンド（`toji index --dir <フォルダ>`）が入っている。
@@ -46,7 +47,7 @@ MD
 - 既存のページに足すときは `toji append` を使う（ファイルを直接編集しない）。既にある部分は変わらない。
 
 ```sh
-toji append notes/<id> --section "関連" --body - <<'MD'   # その節の末尾に足す。--section が無ければページの末尾
+toji append ローカルLLM/<ページ名> --section "関連" --body - <<'MD'   # その節の末尾に足す。--section が無ければページの末尾
 - [新しいページ](./new-page.md)
 MD
 ```
@@ -57,8 +58,8 @@ MD
   または `--section` の節の中にちょうど 1 回だけある必要がある。消すときは `--new` の代わりに `--delete`。
 
 ```sh
-toji replace notes/<id> --old "- 古い行" --new "- 新しい行" --section "記録" --dry-run --diff   # まず差分を見る
-toji replace notes/<id> --old - --delete <<'MD'                                                 # 複数行を消す
+toji replace ローカルLLM/<ページ名> --old "- 古い行" --new "- 新しい行" --section "記録" --dry-run --diff   # まず差分を見る
+toji replace ローカルLLM/<ページ名> --old - --delete <<'MD'                                                 # 複数行を消す
 - 消したい行 1
 - 消したい行 2
 MD

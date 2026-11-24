@@ -506,6 +506,25 @@ func TestE2E_NewIndex(t *testing.T) {
 	}
 }
 
+// --- new refuses an id that repeats the bundle's own folder name ---
+
+func TestE2E_NewRefusesBundleNamePrefix(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "notes")
+	writeFile(t, filepath.Join(dir, "index.md"), "# Index\n")
+	out, code := runOKF(t, "new", dir, "notes/a", "--body", "x")
+	if code != cerr.ExitCodeUsage || !strings.Contains(out, `use \"a\"`) {
+		t.Errorf("notes/a in a bundle called notes: exit %d %s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "notes")); err == nil {
+		t.Error("a nested notes folder was created")
+	}
+	// A bundle that really has a folder of that name may use it.
+	writeFile(t, filepath.Join(dir, "notes/x.md"), "---\ntype: Note\n---\n\nx\n")
+	if out, code := runOKF(t, "new", dir, "notes/b", "--body", "x"); code != 0 {
+		t.Errorf("notes/b with a real notes folder: exit %d %s", code, out)
+	}
+}
+
 // --- replace changes one exact piece; --delete removes it ---
 
 func TestE2E_Replace(t *testing.T) {

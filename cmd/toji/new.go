@@ -154,6 +154,18 @@ func runNew(args []string) {
 		exitErr(cerr.IO(fmt.Errorf("not a directory"), "bundle %s", root))
 	}
 	file := filepath.Join(root, filepath.FromSlash(id)+".md")
+	// An ID is relative to the bundle. One that starts with the bundle's own
+	// folder name ("notes/x" in a bundle called notes) would create a nested
+	// copy of that folder; refuse it unless the bundle really has such a
+	// folder.
+	if first, _, ok := strings.Cut(id, "/"); ok {
+		absRoot, _ := filepath.Abs(root)
+		if first == filepath.Base(absRoot) {
+			if info, err := os.Stat(filepath.Join(root, first)); err != nil || !info.IsDir() { //nolint:gosec // a folder name inside the user's own bundle
+				exitErr(cerr.Usage("concept id %q starts with the bundle's own folder name %q; ids are relative to the bundle, so use %q", id, first, strings.TrimPrefix(id, first+"/")))
+			}
+		}
+	}
 
 	var fm strings.Builder
 	enc := yaml.NewEncoder(&fm)
