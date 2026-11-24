@@ -34,12 +34,14 @@ toji backlinks notes/gpu         # このページを参照しているページ
 ## 書く
 
 ```sh
-toji new notes/<id> --type Note --title "..." --description "一行要約" --tag a,b --body - <<'MD'
+toji new notes/<id> --type Note --title "..." --description "一行要約" --tag a,b --index --body - <<'MD'
 本文（Markdown）
 MD
 ```
 
 - 1 回の呼び出しで完成したページを作る。エディタは開かない。
+- `--index` を必ず付ける。そのページのフォルダの index.md だけが更新され、新しいページが一覧に載る。付け忘れたときは、
+  出力の `index.stale` が true で、`index.update` に打つべきコマンド（`toji index --dir <フォルダ>`）が入っている。
 - 既存のページは上書きも削除もしない。`already exists` で止まったら、別の ID にするか既存ページへの追記でよいかをユーザーに聞く。
 - 既存のページに足すときは `toji append` を使う（ファイルを直接編集しない）。既にある部分は変わらない。
 

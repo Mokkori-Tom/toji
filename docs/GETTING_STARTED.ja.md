@@ -59,6 +59,7 @@ symlink の先にある bundle も、そのままの path で使えます。
 toji new 日記/2026-10-22 --tag 日記     # ページを作って $EDITOR で開く(上書きはしない)
 toji new gpu-fan --title "GPUのファン調整" --description "電力上限の記録"
 toji new 物理/Kapitsa --type Person --title カピッツァ --tag 物理 --body - < 本文.md
+toji new gpu-fan --description "..." --index   # そのフォルダの index.md も更新して、新しいページを一覧に載せる
                                        # 本文ごと1回で作る(--body "文字列" も可。エディタは開かない)
                                        # 本文の先頭に --- で囲んだ frontmatter を書くと、そのキー
                                        # (created・sources など)も足される。同じキーはフラグが優先

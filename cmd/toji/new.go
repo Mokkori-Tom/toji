@@ -14,6 +14,7 @@ import (
 
 	"github.com/Mokkori-Tom/toji/internal/cerr"
 	"github.com/Mokkori-Tom/toji/internal/concept"
+	"github.com/Mokkori-Tom/toji/internal/index"
 )
 
 // newFront is the frontmatter `toji new` writes. Field order is the order a
@@ -39,7 +40,7 @@ func runNew(args []string) {
 	var pos []string
 	front := newFront{Type: defaultNewType, Tags: []string{}}
 	explicit := map[string]bool{} // frontmatter keys set by flags; they win over --body
-	noEdit := false
+	noEdit, updateIndex := false, false
 	body, hasBody := "", false
 	templateName := ""
 	for i := 0; i < len(args); i++ {
@@ -80,6 +81,8 @@ func runNew(args []string) {
 			templateName = value()
 		case "--no-edit":
 			noEdit = true
+		case "--index":
+			updateIndex = true
 		default:
 			if strings.HasPrefix(a, "-") {
 				exitErr(cerr.Usage("unknown new flag: %s", a))
@@ -95,7 +98,7 @@ func runNew(args []string) {
 	case 2:
 		root, id = pos[0], pos[1]
 	default:
-		exitErr(cerr.Usage("usage: toji new [bundle] <concept-id> [--title <title>] [--type <type>] [--tag <a,b>] [--description <text>] [--status <status>] [--body <text>|-] [--no-edit]"))
+		exitErr(cerr.Usage("usage: toji new [bundle] <concept-id> [--title <title>] [--type <type>] [--tag <a,b>] [--description <text>] [--status <status>] [--body <text>|-] [--no-edit] [--index]"))
 	}
 
 	id = strings.TrimSuffix(filepath.ToSlash(id), ".md")
@@ -184,6 +187,7 @@ func runNew(args []string) {
 	}
 
 	abs, _ := filepath.Abs(file)
+	idx := newPageIndex(root, id, updateIndex)
 	if !humanOut {
 		outputJSON(map[string]any{
 			"command": "new",
@@ -192,10 +196,14 @@ func runNew(args []string) {
 			"path":    abs,
 			"type":    front.Type,
 			"title":   front.Title,
+			"index":   idx,
 		})
 		return
 	}
 	fmt.Println("created " + displayPath(abs))
+	if hint, ok := idx["hint"].(string); ok {
+		fmt.Fprintln(os.Stderr, "hint: "+hint)
+	}
 
 	if noEdit || hasBody || !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
 		return
@@ -304,4 +312,33 @@ func openEditor(file string) error {
 	cmd := exec.Command("sh", "-c", editor+` "$1"`, "sh", file) //nolint:gosec // the user's own editor setting
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
+}
+
+// newPageIndex reports whether the folder's index.md lists the page just
+// created, and with update (--index) rebuilds that one folder's index so it
+// does. A new page that no index lists is easy to lose, and agents often
+// forget the separate toji index step.
+func newPageIndex(root, id string, update bool) map[string]any {
+	dir := path.Dir(id) // "." for a page at the bundle root
+	out := map[string]any{"dir": dir}
+	res, err := index.Generate(root, index.Options{Dirs: []string{dir}, DryRun: !update})
+	if err != nil {
+		out["error"] = err.Error()
+		return out
+	}
+	stale := false
+	for _, ir := range res.Indexes {
+		stale = stale || ir.Status != "unchanged"
+	}
+	if update {
+		out["updated"] = stale
+		return out
+	}
+	out["stale"] = stale
+	if stale {
+		cmd := "toji index --dir " + dir
+		out["update"] = cmd
+		out["hint"] = fmt.Sprintf("%s/index.md does not list the new page yet; run `%s` (or pass --index to toji new)", dir, cmd)
+	}
+	return out
 }

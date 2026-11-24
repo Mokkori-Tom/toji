@@ -1050,7 +1050,7 @@ func allSchemaCommands() []schemaCommand {
 		{
 			Name:  "new",
 			Short: "Create a new concept page",
-			Long:  "Writes <bundle>/<concept-id>.md with OKF frontmatter (type, title, description and tags, empty unless given, optional status, generated.by/at from $TOJI_AUTHOR or human:$USER) and either a title heading or, with --body, the given markdown. One call creates a finished page: toji new notes/x --type Note --title X --description ... --tag a,b --body - < body.md. Never overwrites: an existing file is a validation error. On a terminal the page is then opened in $VISUAL/$EDITOR unless --no-edit is given; otherwise it prints JSON with the new path. With one positional argument the bundle is $TOJI_BUNDLE or the current directory.",
+			Long:  "Writes <bundle>/<concept-id>.md with OKF frontmatter (type, title, description and tags, empty unless given, optional status, generated.by/at from $TOJI_AUTHOR or human:$USER) and either a title heading or, with --body, the given markdown. One call creates a finished page: toji new notes/x --type Note --title X --description ... --tag a,b --body - --index < body.md. The JSON output includes index: the page's folder (dir) and whether its index.md still has to list the page (stale, with the update command and a hint); --index rebuilds that one folder's index in the same call (updated). Never overwrites: an existing file is a validation error. On a terminal the page is then opened in $VISUAL/$EDITOR unless --no-edit is given; otherwise it prints JSON with the new path. With one positional argument the bundle is $TOJI_BUNDLE or the current directory.",
 			Flags: []schemaFlag{
 				{Name: "title", Type: "string", Default: "<last segment of concept-id>", Description: "concept title"},
 				{Name: "type", Type: "string", Default: defaultNewType, Description: "frontmatter type"},
@@ -1060,6 +1060,7 @@ func allSchemaCommands() []schemaCommand {
 				{Name: "body", Type: "string", Default: "", Description: "page body as markdown, written as given (no title heading is added); - reads it from stdin. A frontmatter block at its top is merged into the page's frontmatter (flags win over it), so any extra keys can be set. Implies --no-edit"},
 				{Name: "template", Type: "string", Default: "", Description: "start from a template: a name looked up in $TOJI_TEMPLATES, <bundle>/Templates or <bundle>/templates, or a path. Placeholders {{title}}, {{date}}, {{time}}, {{date:YYYY-MM-DD}}, {{date+1d:...}} (d, w, M, y) are filled in; dates are relative to the page's date when its title is YYYY-MM-DD, else to now. Its frontmatter is merged like --body's (template < --body < flags), and --body is appended after it"},
 				{Name: "no-edit", Type: "bool", Default: "false", Description: "do not open an editor"},
+				{Name: "index", Type: "bool", Default: "false", Description: "also rebuild the index.md of the page's folder (like toji index --dir <folder>), so the new page is listed"},
 			},
 			Args: []schemaArg{
 				{Name: "bundle", Required: false},

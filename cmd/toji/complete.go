@@ -129,7 +129,7 @@ _okf() {
       show)     compadd -- --raw --no-pager $common ;;
       search)   compadd -- --tag --type --text --meta --limit $common ;;
       list|graph) compadd -- --limit $common ;;
-      new)      compadd -- --title --type --tag --description --status --body --template --no-edit $common ;;
+      new)      compadd -- --title --type --tag --description --status --body --template --no-edit --index $common ;;
       toc)      compadd -- --depth --remove --dry-run $common ;;
       append)   compadd -- --body --section --dry-run $common ;;
       replace)  compadd -- --old --new --delete --section --all --dry-run --diff $common ;;
@@ -196,7 +196,7 @@ _okf() {
       show)     flags=$'--raw\n--no-pager' ;;
       search)   flags=$'--tag\n--type\n--text\n--meta\n--limit' ;;
       list|graph) flags=$'--limit' ;;
-      new)      flags=$'--title\n--type\n--tag\n--description\n--status\n--body\n--template\n--no-edit' ;;
+      new)      flags=$'--title\n--type\n--tag\n--description\n--status\n--body\n--template\n--no-edit\n--index' ;;
       toc)      flags=$'--depth\n--remove\n--dry-run' ;;
       append)   flags=$'--body\n--section\n--dry-run' ;;
       replace)  flags=$'--old\n--new\n--delete\n--section\n--all\n--dry-run\n--diff' ;;

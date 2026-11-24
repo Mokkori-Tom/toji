@@ -468,6 +468,44 @@ func TestE2E_Append(t *testing.T) {
 	}
 }
 
+// --- new reports a folder index that does not list the page; --index updates it ---
+
+func TestE2E_NewIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.md"), "# Index\n\n## 文書\n\n- [r](./r.md) - r\n")
+	writeFile(t, filepath.Join(dir, "r.md"), "---\ntype: Note\ndescription: r\n---\n\nbody\n")
+	writeFile(t, filepath.Join(dir, "hw/index.md"), "# hw\n\nhardware\n")
+
+	type res struct {
+		Index struct {
+			Dir     string `json:"dir"`
+			Stale   bool   `json:"stale"`
+			Update  string `json:"update"`
+			Updated bool   `json:"updated"`
+		} `json:"index"`
+	}
+	out, code := runOKF(t, "new", dir, "hw/a", "--description", "page a", "--body", "x")
+	var r res
+	if code != 0 || json.Unmarshal([]byte(out), &r) != nil || r.Index.Dir != "hw" || !r.Index.Stale || r.Index.Update != "toji index --dir hw" {
+		t.Fatalf("new without --index: exit %d %s", code, out)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "hw/index.md")); strings.Contains(string(raw), "a.md") {
+		t.Error("new without --index changed the index")
+	}
+	out, code = runOKF(t, "new", dir, "hw/b", "--description", "page b", "--body", "x", "--index")
+	r = res{}
+	if code != 0 || json.Unmarshal([]byte(out), &r) != nil || !r.Index.Updated {
+		t.Fatalf("new --index: exit %d %s", code, out)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "hw/index.md"))
+	if !strings.Contains(string(raw), "- [b](./b.md) - page b") || !strings.Contains(string(raw), "- [a](./a.md) - page a") {
+		t.Errorf("hw/index.md:\n%s", raw)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "index.md")); string(raw) != "# Index\n\n## 文書\n\n- [r](./r.md) - r\n" {
+		t.Errorf("--index touched another folder's index:\n%s", raw)
+	}
+}
+
 // --- replace changes one exact piece; --delete removes it ---
 
 func TestE2E_Replace(t *testing.T) {
