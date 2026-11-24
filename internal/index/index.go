@@ -271,11 +271,11 @@ func (g *generator) dir(dir string, res *Result) error {
 
 	if g.opt.FillDescriptions && old != nil {
 		for _, s := range old.sections {
-			if s.uniformRole(dir) != roleDoc {
+			if s.listRole(dir, g.names) != roleDoc {
 				continue
 			}
 			for _, e := range s.entries {
-				if e.desc == "" || strings.HasSuffix(e.desc, "…") || strings.HasSuffix(e.desc, "...") {
+				if e.role(dir) != roleDoc || e.desc == "" || strings.HasSuffix(e.desc, "…") || strings.HasSuffix(e.desc, "...") {
 					continue
 				}
 				p := filepath.Join(dir, e.name())
@@ -340,7 +340,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 			}
 		}
 		for _, s := range old.sections {
-			r := s.uniformRole(dir)
+			r := s.listRole(dir, g.names)
 			for _, e := range s.entries {
 				if e.desc != "" {
 					oldDesc[e.name()] = e.desc
@@ -456,7 +456,7 @@ func (g *generator) render(dir, rel string, old *indexDoc, l listing) (string, I
 	// Sections in their old order: list sections rebuilt, others verbatim.
 	if old != nil {
 		for _, s := range old.sections {
-			r := s.uniformRole(dir)
+			r := s.listRole(dir, g.names)
 			if r == roleOther || done[r] {
 				lines := trimBlank(s.lines)
 				if s.heading == "" && len(lines) == 0 {
@@ -505,6 +505,32 @@ type section struct {
 	tightBefore  bool // no blank line between the text above and this section
 	tightHeading bool // no blank line between the heading and the list
 	loose        bool // blank lines between the items
+}
+
+// listRole is the role a section is rebuilt as. A section whose entries all
+// point at the same kind of thing has that role (uniformRole). A section under
+// the bundle's own heading for a list ("## 文書") keeps that role when a few of
+// its entries point at another kind of thing in this folder, such as a file
+// link among the pages: those entries move to their own list, which is where
+// toji puts them anyway. A link that is not to something in this folder (a URL,
+// another folder's page) still keeps the whole section as written, so nothing
+// is ever dropped.
+func (s *section) listRole(dir string, n names) role {
+	if r := s.uniformRole(dir); r != roleOther || !s.plain || s.heading == "" {
+		return r
+	}
+	for _, r := range []role{roleFolder, roleDoc, roleFile} {
+		if s.heading != n[r] {
+			continue
+		}
+		for _, e := range s.entries {
+			if e.role(dir) == roleOther {
+				return roleOther
+			}
+		}
+		return r
+	}
+	return roleOther
 }
 
 // uniformRole is the role of a section whose entries all point at the same

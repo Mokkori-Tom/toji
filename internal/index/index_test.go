@@ -482,3 +482,42 @@ func TestHeadingInCodeFence(t *testing.T) {
 		t.Errorf("index.md:\n%s\nwant:\n%s", got, text)
 	}
 }
+
+// A page list under the bundle's own heading with a stray file link among the
+// pages stays the page list: a new page joins it and the file link moves to
+// the file list, link text kept (not a second "## 文書" section).
+func TestNamedListWithStrayFileLink(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"index.md":    "# Index\n\n## 文書\n\n- [r](./r.md) - r\n",
+		"r.md":        "---\ntype: Note\ndescription: r\n---\n\nbody\n",
+		"hw/index.md": "# hw\n\nhardware\n\n## 文書\n\n- [a](./a.md) - a page\n- [mac のシリアル](mac.txt)\n\n## ファイル\n\n- [x.jpg](./x.jpg) - 画像\n",
+		"hw/a.md":     "---\ntype: Note\ndescription: a page\n---\n\nbody\n",
+		"hw/b.md":     "---\ntype: Note\ndescription: new page\n---\n\nbody\n",
+		"hw/mac.txt":  "serial\n",
+		"hw/x.jpg":    "jpg",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"hw"}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "# hw\n\nhardware\n\n## 文書\n\n- [a](./a.md) - a page\n- [b](./b.md) - new page\n\n## ファイル\n\n- [x.jpg](./x.jpg) - 画像\n- [mac のシリアル](mac.txt)\n"
+	if got := read(t, dir, "hw/index.md"); got != want {
+		t.Errorf("hw/index.md:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A link that is not to something in the folder (a URL) still keeps the whole
+// section as written, so it is never dropped.
+func TestNamedListWithURLKeptAsWritten(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"index.md":    "# Index\n\n## 文書\n\n- [r](./r.md) - r\n",
+		"r.md":        "---\ntype: Note\ndescription: r\n---\n\nbody\n",
+		"hw/index.md": "# hw\n\nhardware\n\n## 文書\n\n- [a](./a.md) - a page\n- [spec](https://example.com/spec) - 仕様\n",
+		"hw/a.md":     "---\ntype: Note\ndescription: a page\n---\n\nbody\n",
+	})
+	if _, err := Generate(dir, Options{Dirs: []string{"hw"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, dir, "hw/index.md"); !strings.Contains(got, "- [spec](https://example.com/spec) - 仕様\n") || !strings.Contains(got, "- [a](./a.md) - a page\n") {
+		t.Errorf("hw/index.md:\n%s", got)
+	}
+}
